@@ -1,7 +1,6 @@
 from flask import Flask, render_template, redirect, request, url_for
 from database import init_db, get_connection
 import datetime
-import os
 import json
 
 app = Flask(__name__)
@@ -127,5 +126,4 @@ def chart_data():
 
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+    app.run(debug=True)
