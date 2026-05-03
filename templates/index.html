@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Expense Tracker</title>
+        <style>
+            * { box-sizing: border-box; margin: 0;padding: 0; }
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+                background: #f5f5f5;
+                color: #1a1a1a;
+                padding: 1.5rem 1rem;
+                max-width: 480px;
+                margin: 0 auto;
+            }
+            /*Header*/
+            .header{
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 1.25rem;
+            }
+            .header h1 {font-size: 1.4rem; font-weight: 700;}
+            .header month{ font-size: 0.85rem;color: #888;}
+            /*Card*/
+            .card{
+                background: white;
+                border-radius: 16px;
+                padding: 1.25rem;
+                margin-bottom: 1rem;
+                box-shadow: 0 1px 4px rgba(0, 0,0,0.07);
+            }
+            .card-title{
+                font-size: 0.78rem;
+                font-weight: 600;
+                color: #999;
+                text-transform: uppercase;
+                letter-spacing: 0.06em;
+                margin-bottom: 0.85rem;
+            }
+
+            /*Hero Total*/
+            .hero-total{
+                font-size: 2.2rem;
+                font-weight: 700;
+                letter-spacing: -0.02em;
+                margin-bottom: 02rem;
+            }
+            .hero-label{font-size: 0.85rem;color: #888;}
+
+            /*Chart*/
+            .chart-wrap{
+                position: relative;
+                height: 200px;
+                margin: 0.5rem 0;
+            }
+            /*Form*/
+            .form-group {margin-bottom: 0.75rem;}
+            label {display: block; font-size: 0.78rem; font-weight: 600;color: #999;margin-bottom: 0.3rem;text-transform: uppercase;letter-spacing: 0.04em;}
+            input, select{ 
+                width: 100%; padding: 0.65rem 0.85rem;
+                border: 1.5px solid #eee;border-radius: 10px;
+                font-size: 1rem;background: #fafafa;
+                transition: border-color 0.15s;
+            }
+            input:focus, select:focus{
+                outline: none;border-color: #1a1a1a;background: white;
+            }
+            .btn{
+                width: 100%; padding: 0.85rem;
+                background: #1a1a1a; color: white;
+                border: none;border-radius: 10px;
+                font-size: 1rem;font-weight: 600;
+                cursor: pointer;margin-top: 0.25rem;
+                transition: background 0.15s;
+            }
+            .btn:active{background: #333;}
+            /* Total Banner*/
+            .total { display: flex; justify-content: space-between; align-items: center;font-size: 0.95rem;}
+            .total-amount{ font-size: 1.4rem;font-weight: 700;}
+            /* Monthly Summary*/
+            .month_title{
+                font-size: 0-85rem;
+                font-weight: 600;
+                color: #888;
+                text-transform: uppercase;
+                letter-spacing: 0.05rem;
+                margin-bottom: 0.75rem;
+            }
+            .month_total {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 0.85rem;
+            }
+            .month-total-label{font-size: 0.9rem; color: #444;}
+            .month-total-amount{font-size: 1.2rem;font-weight: 700;}
+            /*Category Breakdown*/
+            .category-row{
+                display: flex;
+                align-items: center;
+                gap: 0.75rem;
+                padding: 0.5rem 0;
+                border-bottom: 1px solid #f5f5f5;
+            }
+            .category-row:last-child{border-bottom: none;}
+            .cat-dot{
+                width: 10px;
+                height: 10px;
+                border-radius: 50%;
+                flex-shrink: 0;
+            }
+            .cat-name{
+                flex: 1;
+                font-size: 0.9rem;
+                color: #333;
+            }
+            .cat-amount{
+                font-size: 0.9rem;
+                font-weight: 600;
+            }
+            .cat-pct{
+                font-size: 0.78;
+                color: #aaa;
+                margin-left: 6px;
+            }
+            /* Expense rows */
+            .expense-item{
+                display: flex;justify-content: space-between;align-items: center;
+                padding: 0.7rem 0;border-bottom: 1px solid #f5f5f5;
+            }
+            .expense-item:last-child {border-bottom: none;}
+            .expense-icon{
+                width: 36px;
+                border-radius: 10px;
+                background: #f5f5f5;
+                display: flex; align-items: center;justify-content: center;
+                font-size: 1.1rem;
+                margin-right: 0.75rem;
+                flex-shrink: 0;
+            }
+            .expense-left {display: flex;align-items: center;flex: 1;min-width: 0;}
+            .expense-category{font-weight: 500; font-size: 0.92rem;}
+            .expense-meta{font-size: 0.75rem; color: #aaa; margin-top: 1px;white-space: nowrap;overflow: hidden;text-overflow: ellipsis;}
+            .expense-right{display: flex;align-items: center;gap: 0.6rem;margin-left: 0.75rem;}
+            .expense-amount{font-weight: 600;font-size: 0.92rem;white-space: nowrap;}
+
+            /* Delete button */
+            .delete-btn{
+                background:none;
+                border: none;
+                cursor: pointer;
+                color: #ddd;
+                font-size: 0.9rem;
+                padding: 4px 6px;
+                border-radius: 6px;
+                line-height: 1;
+                transition: all 0.15s;
+            }
+            .delete-btn:hover{color: #e55;background: #fff0f0;}
+
+            .empty{text-align: center;color: #bbb;padding: 1.5rem 0;font-size: 0.9rem;}
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <h1>💸 Expenses</h1>
+            <span class="header-month">{{ current_month }}</span>
+        </div>
+        
+        <!--Hero Total-->
+        <div class="card">
+            <div class="card-title">Total this month</div>
+            <div class="hero-total">{{ "%.2f"|format(monthly_total)}}</div>
+            <div class="hero-label">across {{category_totals|length}}</div>
+        </div>
+
+        <!-- Chart + category breakdown-->
+        {% if category_totals %}
+            <div class="card">
+                <div class="card-title">Spending by category</div>
+                <div class="chart-wrap">
+                    <canvas id="spendingChart"></canvas>
+                </div>
+
+                {%for row in category_total%}
+                {% set colors = ["#1a1a1a", "#555555", "#888888", "#aaaaaa", "#4a90d9", "#e8834a", "#5cb85c", "#d9534f"] %}
+                <div class="category-row">
+                    <div class="cat-dot" style="background: {{ colors[loop.index0] }}"></div>
+                    <span class="cat-name">{{ row["category"] }} </span>
+                    <span class="cat-amount"> {{ "%.2f"|format(row["subtotal"])}}</span>
+                    <span class="cat-pct">
+                        {% if monthly_total > 0 %}
+                            {{"%.0f"|format(row["subtotal"]/month_total * 100)}}
+                        {% endif %}
+                    </span>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+        <!-- Add Expense from-->
+        <div class="card">
+            <div class="card-title">Add expense</div>
+            <form action="/add" method="POST">
+                <div class="form-group">
+                    <label for="amount">Amount (€)</label>
+                    <input type="number" id="amount" name="amount" placeholder="0.00" step="0.01" min="0" required>
+                </div>
+                <div class="form-group">
+                    <label for="category">Category</label>
+                    <select id="category" name="category" required>
+                        <option value="" disabled selected>Select a category</option>
+                        <option value="Food">🍗 Food</option>
+                        <option value="Transport">🚆 Transport</option>
+                        <option value="Shopping">🛍️ Shopping</option>
+                        <option value="Health">💊 Health</option>
+                        <option value="Entertainment">🎬 Entertainment</option>
+                        <option value="Bills">📄 Bills</option>
+                        <option value="Other">📦 Other</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="note">Note (optional)</label>
+                    <input type="text" id="note" name="note" placeholder="e.g. Lunch at the canteen">
+                </div>
+                <div class="form-group">
+                    <label for="date">Date</label>
+                    <input type="date" id="date" name="date" required>
+                </div>
+                <button class="btn" type="submit">Add expense</button>
+            </form>
+        </div>
+
+        <!-- All expenses-->
+        <div class="card">
+            <div class="card-title">All expenses</div>
+            {% if expenses %}
+                {% for expense in expenses %}
+                <div class="expense-item">
+                    <div class="expense-left">
+                        <div class="expense-icon">{{expense["category"]|category_icon}}</div>
+                        <div class="expense-info">
+                            <div class="expense-category">{{expense["category"]}}</div>
+                            <div class="expense-meta">{{expense["date"]}}{%if expense["note"]%}·{{expense["note"]}}{% endif %}</div>
+                        </div>
+                    </div>
+                    <div class="expense-right">
+                        <span class="expense-amount">€ {{"%.2f"|format(expense["amount"])}}</span>
+                        <form action="/delete/{{expense['id']}}"method="POST">
+                            <button class="delete-btn" type="submit" title="Delete">x</button>
+                        </form>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <p class="empty">No expenses yet. ADD one above.</p>
+            {% endif %}
+        </div>
+        <script src="/static/chart.js"></script>
+        <script>
+            document.getElementById("date").valueAsDate = new Date();
+
+            const colors = [
+                "#1a1a1a", "#555555", "#888888", "#aaaaaa",
+                "#4a90d9", "#e8834a", "#5cb85c", "#d9534f"
+            ];
+
+            fetch("/chart-data")
+                .then(res => res.json())
+                .then(data => {
+                    const canvas = document.getElementById("spendingChart");
+                    if (!canvas || data.labels.length === 0) return;
+
+                    new Chart(canvas, {
+                        type: "doughnut",
+                        data: {
+                            labels: data.labels,
+                            datasets: [{
+                                data: data.values,
+                                backgroundColor: colors.slice(0, data.labels.length),
+                                borderWidth: 0,
+                                hoverOffset: 6
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: { display: false },
+                                tooltip: {
+                                    callbacks: {
+                                        label: ctx => ` € ${ctx.parsed.toFixed(2)}`
+                                    }
+                                }
+                            },
+                            cutout: "68%"
+                        }
+                    });
+                });
+        </script>
+
+    </body>
+</html>
