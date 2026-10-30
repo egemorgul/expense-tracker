@@ -23,6 +23,17 @@ targets:
         SWIFT_VERSION: "5.0"
         TARGETED_DEVICE_FAMILY: "1"
         CODE_SIGN_STYLE: Automatic
+  ExpenseTrackerTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [ExpenseTrackerTests]
+    dependencies:
+      - target: ExpenseTracker
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_VERSION: "5.0"
+        TARGETED_DEVICE_FAMILY: "1"
   ExpenseTrackerUITests:
     type: bundle.ui-testing
     platform: iOS
@@ -43,4 +54,6 @@ schemes:
       config: Debug
     test:
       config: Debug
-      targets: [ExpenseTrackerUITests]
+      targets: [ExpenseTrackerTests, ExpenseTrackerUITests]
+      commandLineArguments:
+        "-uiTesting": true
