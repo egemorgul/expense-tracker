@@ -1,3 +1,21 @@
 venv/
 __pycache__/
 *.db
+*.xcodeproj/
+DerivedData/
+build/
+xcuserdata/
+.DS_Store
+
+# Claude Code
+CLAUDE.md
+.claude/
+
+# Secrets and signing files
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.cer
+*.mobileprovision
