@@ -62,9 +62,10 @@ struct PeriodBar: View {
             step("Next month", systemImage: "chevron.right", months: 1)
         }
         .padding(.horizontal, 8)
-        .background(.bar)
+        .background(Color.paper)
         .sheet(isPresented: $isPickingRange) {
             PeriodPicker(period: $period)
+                .warmSheet()
                 .presentationDetents([.medium])
         }
     }
@@ -91,13 +92,16 @@ private struct PeriodPicker: View {
                     DatePicker("From", selection: $period.from, in: ...period.to, displayedComponents: .date)
                     DatePicker("To", selection: $period.to, in: period.from..., displayedComponents: .date)
                 }
+                .warmRows()
                 Section {
                     Button("This month") {
                         period = .month(containing: .now)
                         dismiss()
                     }
                 }
+                .warmRows()
             }
+            .warmPage()
             .navigationTitle("Date range")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

@@ -42,6 +42,7 @@ struct CategoriesView: View {
                             Text("That category already exists.")
                         }
                     }
+                    .warmRows()
 
                     Section {
                         ForEach(categories) { category in
@@ -68,7 +69,9 @@ struct CategoriesView: View {
                     } footer: {
                         Text("Swipe left to delete a category. Categories with expenses can't be deleted, and at least one has to remain.")
                     }
+                    .warmRows()
                 }
+                .warmPage()
                 // A new category goes to the end of the list, which can be off-screen.
                 .onChange(of: categories.count) { oldCount, newCount in
                     guard newCount > oldCount, let last = categories.last else { return }

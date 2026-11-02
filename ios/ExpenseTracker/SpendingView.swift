@@ -21,7 +21,7 @@ struct SpendingView: View {
                                     .font(.subheadline)
                                     .foregroundStyle(.secondary)
                                 Text(total.euros)
-                                    .font(.system(.largeTitle, design: .rounded, weight: .bold))
+                                    .font(.system(.largeTitle, design: .serif, weight: .bold))
                                     .monospacedDigit()
                                     .minimumScaleFactor(0.5)
                                     .lineLimit(1)
@@ -30,14 +30,17 @@ struct SpendingView: View {
                         }
                         .padding(.vertical, 6)
                     }
+                    .warmRows()
 
                     Section("By category") {
                         ForEach(totals) { row in
                             CategoryRow(row: row, category: categoriesByName[row.categoryName], total: total)
                         }
                     }
+                    .warmRows()
                 }
             }
+            .warmPage()
             .overlay {
                 if totals.isEmpty {
                     ContentUnavailableView(
@@ -76,7 +79,7 @@ private struct CategoryRow: View {
                         .font(.body.weight(.medium))
                     Spacer()
                     Text(row.subtotal.euros)
-                        .font(.system(.body, design: .rounded, weight: .semibold))
+                        .font(.system(.body, design: .serif, weight: .semibold))
                         .monospacedDigit()
                 }
                 HStack(spacing: 8) {

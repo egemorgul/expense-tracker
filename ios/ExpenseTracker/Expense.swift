@@ -2,23 +2,24 @@ import Foundation
 import SwiftData
 import SwiftUI
 
+/// The raw values are stored, so a color's look can change but its name can't.
 enum CategoryColor: String, CaseIterable {
     case orange, blue, pink, green, purple, red, gray, teal, yellow, indigo, brown, mint
 
     var color: Color {
         switch self {
-        case .orange: .orange
-        case .blue: .blue
-        case .pink: .pink
-        case .green: .green
-        case .purple: .purple
-        case .red: .red
-        case .gray: .gray
-        case .teal: .teal
-        case .yellow: .yellow
-        case .indigo: .indigo
-        case .brown: .brown
-        case .mint: .mint
+        case .orange: Color(hex: 0xD9772B)
+        case .blue: Color(hex: 0x3F7E8C)
+        case .pink: Color(hex: 0xC8607A)
+        case .green: Color(hex: 0x5E8C4A)
+        case .purple: Color(hex: 0x8A5A83)
+        case .red: Color(hex: 0xB8432F)
+        case .gray: Color(hex: 0x8C7B6B)
+        case .teal: Color(hex: 0x2F8F83)
+        case .yellow: Color(hex: 0xD9A521)
+        case .indigo: Color(hex: 0x5A5F9A)
+        case .brown: Color(hex: 0x8A5A3A)
+        case .mint: Color(hex: 0x79A88E)
         }
     }
 }
@@ -131,9 +132,8 @@ extension Array where Element == Expense {
 
     /// Includes the whole of both the first and the last day.
     func within(from: Date, to: Date, calendar: Calendar = .current) -> [Expense] {
-        let start = calendar.startOfDay(for: from)
-        guard let end = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: to)) else { return [] }
-        return filter { $0.date >= start && $0.date < end }
+        guard let days = calendar.wholeDays(from: from, to: to) else { return [] }
+        return filter { days.contains($0.date) }
     }
 
     var total: Decimal {
@@ -148,9 +148,18 @@ extension Array where Element == Expense {
     }
 }
 
+extension Calendar {
+    func wholeDays(from: Date, to: Date) -> Range<Date>? {
+        let start = startOfDay(for: from)
+        guard let end = date(byAdding: .day, value: 1, to: startOfDay(for: to)), start < end else { return nil }
+        return start..<end
+    }
+}
+
 extension Decimal {
-    var euros: String {
-        formatted(.currency(code: "EUR"))
+    /// Always shows the sign, except on zero.
+    var signedEuros: String {
+        formatted(.currency(code: "EUR").sign(strategy: .always(showZero: false)))
     }
 
     /// Reads a typed amount with either "." or "," as the decimal separator, whatever the device

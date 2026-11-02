@@ -2,7 +2,7 @@ import SwiftData
 import SwiftUI
 
 private enum AppTab {
-    case overview, activity, spending
+    case overview, transactions, activity, spending
 }
 
 struct ContentView: View {
@@ -11,12 +11,15 @@ struct ContentView: View {
     @Query private var balanceEntries: [BalanceEntry]
     @State private var tab = AppTab.overview
     @State private var isAddingExpense = false
+    @State private var expenseBeingEdited: EditRequest<Expense>?
+    @State private var incomeBeingEdited: EditRequest<BalanceEntry>?
     @State private var period = Period.month(containing: .now)
 
     var body: some View {
         let balances = Balances(entries: balanceEntries, expenses: expenses)
         let categoriesByName = categories.byName
         let addExpense = { isAddingExpense = true }
+        let editExpense = { (expense: Expense) in expenseBeingEdited = EditRequest(expense) }
 
         TabView(selection: $tab) {
             OverviewView(
@@ -24,13 +27,26 @@ struct ContentView: View {
                 categoriesByName: categoriesByName,
                 balances: balances,
                 addExpense: addExpense,
+                editExpense: editExpense,
                 showSpending: { tab = .spending },
                 showActivity: { tab = .activity }
             )
             .tabItem { Label("Overview", systemImage: "house") }
             .tag(AppTab.overview)
 
-            ActivityView(expenses: expenses, categoriesByName: categoriesByName, period: $period, addExpense: addExpense)
+            TransactionsView(
+                entries: balanceEntries,
+                expenses: expenses,
+                categoriesByName: categoriesByName,
+                period: $period,
+                addExpense: addExpense,
+                editExpense: editExpense,
+                editIncome: { incomeBeingEdited = EditRequest($0) }
+            )
+            .tabItem { Label("Transactions", systemImage: "arrow.up.arrow.down") }
+            .tag(AppTab.transactions)
+
+            ActivityView(expenses: expenses, categoriesByName: categoriesByName, period: $period, addExpense: addExpense, editExpense: editExpense)
                 .tabItem { Label("Activity", systemImage: "list.bullet") }
                 .tag(AppTab.activity)
 
@@ -39,10 +55,37 @@ struct ContentView: View {
                 .tag(AppTab.spending)
         }
         .tint(.brand)
+        .foregroundStyle(Color.ink)
         .sheet(isPresented: $isAddingExpense) {
-            AddExpenseView(balances: balances)
-                .tint(.brand)
+            ExpenseFormView(balances: balances)
+                .warmSheet()
         }
+        .sheet(item: $expenseBeingEdited) { request in
+            ExpenseFormView(balances: balances, editing: request.model)
+                .warmSheet()
+        }
+        .sheet(item: $incomeBeingEdited) { request in
+            BalanceEntryView(isTransfer: false, balances: balances, editing: request.model)
+                .warmSheet()
+        }
+        .task(id: WidgetSnapshot(balances)) {
+            WidgetSnapshot(balances).publish()
+        }
+        .onOpenURL { url in
+            // Asking for a second sheet over an open one fails, and would leave this flag stuck on.
+            if url == WidgetLink.addExpense, !UIApplication.shared.isPresentingSheet {
+                isAddingExpense = true
+            }
+        }
+    }
+}
+
+private extension UIApplication {
+    var isPresentingSheet: Bool {
+        connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap(\.windows)
+            .contains { $0.rootViewController?.presentedViewController != nil }
     }
 }
 
@@ -59,6 +102,7 @@ private struct OverviewView: View {
     let categoriesByName: [String: ExpenseCategory]
     let balances: Balances
     let addExpense: () -> Void
+    let editExpense: (Expense) -> Void
     let showSpending: () -> Void
     let showActivity: () -> Void
 
@@ -69,6 +113,14 @@ private struct OverviewView: View {
 
         NavigationStack {
             List {
+                Section {
+                    Text(greeting)
+                        .font(.system(.largeTitle, design: .serif, weight: .bold))
+                        .listRowInsets(EdgeInsets())
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                }
+
                 Section {
                     MainBalanceCard(
                         balance: balances[.main],
@@ -82,7 +134,7 @@ private struct OverviewView: View {
                 Section {
                     HStack(spacing: 12) {
                         AccountTile(account: .savings, systemImage: "building.columns.fill", tint: .positive, caption: "Set aside", value: balances[.savings])
-                        AccountTile(account: .cash, systemImage: "banknote.fill", tint: .teal, caption: "On hand", value: balances[.cash])
+                        AccountTile(account: .cash, systemImage: "banknote.fill", tint: .coinDark, caption: "On hand", value: balances[.cash])
                     }
                     .listRowInsets(EdgeInsets())
                     .listRowBackground(Color.clear)
@@ -96,6 +148,7 @@ private struct OverviewView: View {
                         showSpending: showSpending
                     )
                 }
+                .warmRows()
 
                 Section {
                     if expenses.isEmpty {
@@ -104,15 +157,16 @@ private struct OverviewView: View {
                     }
                     ForEach(recent) { expense in
                         ExpenseRow(expense: expense, category: categoriesByName[expense.categoryName])
-                    }
-                    .onDelete { offsets in
-                        for index in offsets {
-                            modelContext.delete(recent[index])
-                        }
+                            .editDeleteSwipeActions(
+                                edit: { editExpense(expense) },
+                                delete: { modelContext.delete(expense) }
+                            )
                     }
                 } header: {
                     HStack {
                         Text("Recent")
+                            .font(.system(.subheadline, design: .serif, weight: .semibold))
+                            .textCase(nil)
                         Spacer()
                         if expenses.count > Self.recentCount {
                             Button("See all", action: showActivity)
@@ -121,11 +175,13 @@ private struct OverviewView: View {
                         }
                     }
                 }
+                .warmRows()
             }
+            .warmPage()
             .listSectionSpacing(.compact)
-            .navigationTitle("Overview")
+            .navigationBarTitleDisplayMode(.inline)
             .navigationDestination(isPresented: $isShowingHistory) {
-                BalanceHistoryView()
+                BalanceHistoryView(balances: balances)
             }
             .toolbar {
                 ToolbarItemGroup(placement: .topBarTrailing) {
@@ -140,13 +196,24 @@ private struct OverviewView: View {
             .addExpenseButton(action: addExpense)
             .sheet(isPresented: $isManagingCategories) {
                 CategoriesView()
+                    .warmSheet()
             }
             .sheet(isPresented: $isAddingMoney) {
                 BalanceEntryView(isTransfer: false, balances: balances)
+                    .warmSheet()
             }
             .sheet(isPresented: $isMovingMoney) {
                 BalanceEntryView(isTransfer: true, balances: balances)
+                    .warmSheet()
             }
+        }
+    }
+
+    private var greeting: String {
+        switch Calendar.current.component(.hour, from: .now) {
+        case 5..<12: "Good morning"
+        case 12..<18: "Good afternoon"
+        default: "Good evening"
         }
     }
 }
@@ -158,6 +225,7 @@ private struct MainBalanceCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .bottom, spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
                 if balance < 0 {
                     Label("Main balance overdrawn", systemImage: "exclamationmark.triangle.fill")
@@ -169,27 +237,33 @@ private struct MainBalanceCard: View {
                         .opacity(0.85)
                 }
                 Text(balance.euros)
-                    .font(.system(.largeTitle, design: .rounded, weight: .bold))
+                    .font(.system(.largeTitle, design: .serif, weight: .bold))
                     .monospacedDigit()
-                    .foregroundStyle(balance < 0 ? Color.heroNegative : .white)
+                    .foregroundStyle(balance < 0 ? Color.heroNegative : Color.heroText)
                     .minimumScaleFactor(0.5)
                     .lineLimit(1)
                     .contentTransition(.numericText())
                     .animation(.default, value: balance)
+            }
+                Spacer(minLength: 0)
+                HearthMark()
+                    .frame(height: 72)
             }
             HStack(spacing: 10) {
                 CardButton(title: "Add money", systemImage: "plus", action: addMoney)
                 CardButton(title: "Move money", systemImage: "arrow.left.arrow.right", action: moveMoney)
             }
         }
-        .foregroundStyle(.white)
+        .foregroundStyle(Color.heroText)
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(LinearGradient(colors: [.heroTop, .heroBottom], startPoint: .topLeading, endPoint: .bottomTrailing))
-        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .background {
+            LinearGradient(colors: [.heroTop, .heroBottom], startPoint: .topLeading, endPoint: .bottomTrailing)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .strokeBorder(.white.opacity(0.1))
+            RoundedRectangle(cornerRadius: 26, style: .continuous)
+                .strokeBorder(Color.coinLight.opacity(0.18))
         }
     }
 }
@@ -206,7 +280,7 @@ private struct CardButton: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
                 .frame(maxWidth: .infinity, minHeight: 44)
-                .background(.white.opacity(0.16), in: Capsule())
+                .background(Color.heroText.opacity(0.16), in: Capsule())
         }
         .buttonStyle(PressableButtonStyle())
     }
@@ -232,9 +306,9 @@ private struct AccountTile: View {
                     .font(.subheadline.weight(.medium))
             }
             Text(value.euros)
-                .font(.system(.title2, design: .rounded, weight: .bold))
+                .font(.system(.title2, design: .serif, weight: .bold))
                 .monospacedDigit()
-                .foregroundStyle(value < 0 ? Color.negative : .primary)
+                .foregroundStyle(value < 0 ? Color.negative : Color.ink)
                 .minimumScaleFactor(0.6)
                 .lineLimit(1)
             Text(value < 0 ? "Overdrawn" : caption)
@@ -243,7 +317,8 @@ private struct AccountTile: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .background(Color.card, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .shadow(color: Color.heroBottom.opacity(0.08), radius: 8, y: 3)
     }
 }
 
@@ -267,7 +342,7 @@ private struct MonthSummary: View {
                         .accessibilityHidden(true)
                 }
                 Text(total.euros)
-                    .font(.system(.title, design: .rounded, weight: .bold))
+                    .font(.system(.title, design: .serif, weight: .bold))
                     .monospacedDigit()
                     .foregroundStyle(.primary)
                     .minimumScaleFactor(0.6)

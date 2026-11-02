@@ -1,41 +1,59 @@
 import Charts
 import SwiftUI
 
-extension Color {
-    static let brand = Color(light: 0x1E40AF, dark: 0x60A5FA)
-    /// Text and icons on top of `brand`.
-    static let onBrand = Color(light: 0xFFFFFF, dark: 0x0F172A)
-    static let positive = Color(light: 0x047857, dark: 0x34D399)
-    static let negative = Color(light: 0xB91C1C, dark: 0xF87171)
-
-    /// The balance card stays navy in both appearances, so its text is always light.
-    static let heroTop = Color(hex: 0x0F172A)
-    static let heroBottom = Color(hex: 0x1E3A8A)
-    static let heroNegative = Color(hex: 0xFCA5A5)
-
-    private init(hex: UInt32) {
-        self.init(uiColor: UIColor(hex: hex))
-    }
-
-    private init(light: UInt32, dark: UInt32) {
-        self.init(uiColor: UIColor { $0.userInterfaceStyle == .dark ? UIColor(hex: dark) : UIColor(hex: light) })
-    }
-}
-
-private extension UIColor {
-    convenience init(hex: UInt32) {
-        self.init(
-            red: CGFloat((hex >> 16) & 0xFF) / 255,
-            green: CGFloat((hex >> 8) & 0xFF) / 255,
-            blue: CGFloat(hex & 0xFF) / 255,
-            alpha: 1
-        )
-    }
-}
-
 extension Decimal {
     var doubleValue: Double {
         NSDecimalNumber(decimal: self).doubleValue
+    }
+}
+
+extension Date {
+    /// The heading for a day in a list of transactions.
+    var dayTitle: String {
+        let calendar = Calendar.current
+        if calendar.isDateInToday(self) { return "Today" }
+        if calendar.isDateInYesterday(self) { return "Yesterday" }
+        return formatted(.dateTime.weekday(.wide).day().month(.wide))
+    }
+}
+
+/// Opens a form on one model with `sheet(item:)`. A model's own id changes when it's first saved, a
+/// few seconds after being added. Using that id would rebuild an open form and lose what was typed.
+struct EditRequest<Model>: Identifiable {
+    let id = UUID()
+    let model: Model
+
+    init(_ model: Model) {
+        self.model = model
+    }
+}
+
+enum WarmAppearance {
+    /// Bars can only be fully restyled through UIKit, so this runs once when the app starts.
+    static func apply() {
+        let navigation = UINavigationBarAppearance()
+        navigation.configureWithOpaqueBackground()
+        navigation.backgroundColor = .paper
+        navigation.shadowColor = .clear
+        let ink = UIColor(light: 0x2B1A12, dark: 0xF6E9D8)
+        navigation.titleTextAttributes = [.foregroundColor: ink, .font: serif(style: .headline)]
+        navigation.largeTitleTextAttributes = [.foregroundColor: ink, .font: serif(style: .largeTitle)]
+        UINavigationBar.appearance().standardAppearance = navigation
+        UINavigationBar.appearance().scrollEdgeAppearance = navigation
+        UINavigationBar.appearance().compactAppearance = navigation
+
+        let tabs = UITabBarAppearance()
+        tabs.configureWithOpaqueBackground()
+        tabs.backgroundColor = .paper
+        tabs.shadowColor = UIColor(light: 0xE6D6BE, dark: 0x3A241A)
+        UITabBar.appearance().standardAppearance = tabs
+        UITabBar.appearance().scrollEdgeAppearance = tabs
+    }
+
+    private static func serif(style: UIFont.TextStyle) -> UIFont {
+        let base = UIFontDescriptor.preferredFontDescriptor(withTextStyle: style).withSymbolicTraits(.traitBold)
+            ?? UIFontDescriptor.preferredFontDescriptor(withTextStyle: style)
+        return UIFont(descriptor: base.withDesign(.serif) ?? base, size: 0)
     }
 }
 
@@ -59,12 +77,42 @@ extension View {
                     .padding(.horizontal, 20)
                     .frame(minHeight: 50)
                     .background(Color.brand, in: Capsule())
-                    .shadow(color: .black.opacity(0.2), radius: 8, y: 4)
+                    .shadow(color: Color.heroBottom.opacity(0.35), radius: 12, y: 6)
             }
             .buttonStyle(PressableButtonStyle())
             .frame(maxWidth: .infinity, alignment: .trailing)
             .padding(.horizontal, 16)
             .padding(.bottom, 8)
+        }
+    }
+
+    /// The warm page behind a list or form. Pair it with `warmRows()` on each section.
+    func warmPage() -> some View {
+        scrollContentBackground(.hidden)
+            .background(Color.paper)
+    }
+
+    func warmRows() -> some View {
+        listRowBackground(Color.card)
+    }
+
+    /// Sheets don't inherit these from the screen that opens them.
+    func warmSheet() -> some View {
+        tint(.brand)
+            .foregroundStyle(Color.ink)
+    }
+
+    /// Swipe right to edit a list row and left to delete it. Delete is declared here rather than with
+    /// `onDelete`, because a row with custom swipe actions can lose the one `onDelete` provides.
+    func editDeleteSwipeActions(edit: (() -> Void)?, delete: @escaping () -> Void) -> some View {
+        swipeActions(edge: .leading) {
+            if let edit {
+                Button("Edit", systemImage: "pencil", action: edit)
+                    .tint(.brand)
+            }
+        }
+        .swipeActions(edge: .trailing) {
+            Button("Delete", systemImage: "trash", role: .destructive, action: delete)
         }
     }
 }
@@ -77,7 +125,7 @@ struct CategoryBadge: View {
         Text(icon)
             .font(.title3)
             .frame(width: 40, height: 40)
-            .background(color.opacity(0.18), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .background(color.opacity(0.2), in: Circle())
     }
 }
 
@@ -85,6 +133,8 @@ struct ExpenseRow: View {
     let expense: Expense
     let category: ExpenseCategory?
     var showsDate = true
+    /// Shows the amount as money going out, for lists that mix in income.
+    var showsSign = false
 
     private var meta: String {
         var parts: [String] = []
@@ -108,8 +158,8 @@ struct ExpenseRow: View {
                 }
             }
             Spacer()
-            Text(expense.amount.euros)
-                .font(.system(.body, design: .rounded, weight: .semibold))
+            Text(showsSign ? (-expense.amount).signedEuros : expense.amount.euros)
+                .font(.system(.body, design: .serif, weight: .semibold))
                 .monospacedDigit()
         }
     }
@@ -150,12 +200,13 @@ struct AmountField: View {
                     .foregroundStyle(.secondary)
                     .accessibilityHidden(true)
                 TextField("0.00", text: $text)
+                    .tint(.brand)
                     .keyboardType(.decimalPad)
                     .focused($isFocused)
                     .fixedSize()
                     .accessibilityLabel("Amount (€)")
             }
-            .font(.system(.largeTitle, design: .rounded, weight: .bold))
+            .font(.system(.largeTitle, design: .serif, weight: .bold))
             .monospacedDigit()
 
             if isInvalid {

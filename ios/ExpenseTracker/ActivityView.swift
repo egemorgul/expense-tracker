@@ -8,6 +8,7 @@ struct ActivityView: View {
     let categoriesByName: [String: ExpenseCategory]
     @Binding var period: Period
     let addExpense: () -> Void
+    let editExpense: (Expense) -> Void
 
     var body: some View {
         let days = expenses.within(from: period.from, to: period.to).groupedByDay
@@ -18,22 +19,26 @@ struct ActivityView: View {
                     Section {
                         ForEach(day.expenses) { expense in
                             ExpenseRow(expense: expense, category: categoriesByName[expense.categoryName], showsDate: false)
-                        }
-                        .onDelete { offsets in
-                            for index in offsets {
-                                modelContext.delete(day.expenses[index])
-                            }
+                                .editDeleteSwipeActions(
+                                    edit: { editExpense(expense) },
+                                    delete: { modelContext.delete(expense) }
+                                )
                         }
                     } header: {
                         HStack {
-                            Text(title(for: day.date))
+                            Text(day.date.dayTitle)
+                                .font(.system(.subheadline, design: .serif, weight: .semibold))
+                                .textCase(nil)
                             Spacer()
                             Text(day.expenses.total.euros)
+                                .font(.system(.subheadline, design: .serif, weight: .semibold))
                                 .monospacedDigit()
                         }
                     }
+                    .warmRows()
                 }
             }
+            .warmPage()
             .overlay {
                 if days.isEmpty {
                     ContentUnavailableView(
@@ -50,12 +55,5 @@ struct ActivityView: View {
             }
             .addExpenseButton(action: addExpense)
         }
-    }
-
-    private func title(for date: Date) -> String {
-        let calendar = Calendar.current
-        if calendar.isDateInToday(date) { return "Today" }
-        if calendar.isDateInYesterday(date) { return "Yesterday" }
-        return date.formatted(.dateTime.weekday(.wide).day().month(.wide))
     }
 }

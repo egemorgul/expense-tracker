@@ -110,6 +110,59 @@ private enum StoreV3: VersionedSchema {
     }
 }
 
+/// The store as shipped before money added could be marked as a starting balance.
+private enum StoreV4: VersionedSchema {
+    static var versionIdentifier = Schema.Version(4, 0, 0)
+    static var models: [any PersistentModel.Type] { [Expense.self, ExpenseCategory.self, BalanceEntry.self] }
+
+    @Model
+    final class Expense {
+        var amount: Decimal
+        var categoryName: String
+        var note: String
+        var date: Date
+        var accountName: String?
+
+        init(amount: Decimal, categoryName: String, note: String, date: Date, accountName: String?) {
+            self.amount = amount
+            self.categoryName = categoryName
+            self.note = note
+            self.date = date
+            self.accountName = accountName
+        }
+    }
+
+    @Model
+    final class ExpenseCategory {
+        var name: String
+        var icon: String
+        var colorName: String
+        var sortOrder: Int
+
+        init(name: String, icon: String, colorName: String, sortOrder: Int) {
+            self.name = name
+            self.icon = icon
+            self.colorName = colorName
+            self.sortOrder = sortOrder
+        }
+    }
+
+    @Model
+    final class BalanceEntry {
+        var amount: Decimal
+        var sourceName: String?
+        var destinationName: String
+        var date: Date
+
+        init(amount: Decimal, sourceName: String?, destinationName: String, date: Date) {
+            self.amount = amount
+            self.sourceName = sourceName
+            self.destinationName = destinationName
+            self.date = date
+        }
+    }
+}
+
 final class StoreMigrationTests: XCTestCase {
     private var directory: URL!
     private var storeURL: URL { directory.appending(path: "test.store") }
@@ -197,6 +250,50 @@ final class StoreMigrationTests: XCTestCase {
         let balances = Balances(entries: try context.fetch(FetchDescriptor<BalanceEntry>()), expenses: expenses)
         XCTAssertEqual(balances[.main], 41)
         XCTAssertEqual(balances[.savings], 30)
+    }
+
+    func testExistingDataIsKeptAndNoEntryBecomesAStartingBalance() throws {
+        let date = Date(timeIntervalSince1970: 1_790_000_000)
+        do {
+            let old = try ModelContainer(for: Schema(versionedSchema: StoreV4.self), configurations: ModelConfiguration(url: storeURL))
+            let context = ModelContext(old)
+            context.insert(StoreV4.ExpenseCategory(name: "Pets", icon: "🐶", colorName: "teal", sortOrder: 0))
+            context.insert(StoreV4.Expense(amount: 9, categoryName: "Pets", note: "Treats", date: date, accountName: "cash"))
+            context.insert(StoreV4.BalanceEntry(amount: 80, sourceName: nil, destinationName: "spending", date: date))
+            context.insert(StoreV4.BalanceEntry(amount: 30, sourceName: "spending", destinationName: "cash", date: date))
+            try context.save()
+        }
+
+        let context = ModelContext(try .forApp(ModelConfiguration(url: storeURL)))
+
+        let expenses = try context.fetch(FetchDescriptor<Expense>())
+        XCTAssertEqual(expenses.map(\.amount), [9])
+        XCTAssertEqual(expenses.map(\.note), ["Treats"])
+        XCTAssertEqual(expenses.map(\.date), [date])
+        XCTAssertEqual(expenses.map(\.account), [.cash])
+
+        XCTAssertEqual(try context.fetch(FetchDescriptor<ExpenseCategory>()).map(\.name), ["Pets"])
+
+        let entries = try context.fetch(FetchDescriptor<BalanceEntry>())
+        XCTAssertEqual(entries.count, 2)
+        XCTAssertTrue(entries.allSatisfy { !$0.isStartingBalance })
+        XCTAssertEqual(entries.filter(\.countsAsIncome).map(\.amount), [80])
+
+        let balances = Balances(entries: entries, expenses: expenses)
+        XCTAssertEqual(balances[.main], 50)
+        XCTAssertEqual(balances[.cash], 21)
+    }
+
+    func testStartingBalanceFlagSurvivesARelaunch() throws {
+        do {
+            let context = ModelContext(try .forApp(ModelConfiguration(url: storeURL)))
+            context.insert(BalanceEntry(amount: 80, source: nil, destination: .main, date: .now, isStartingBalance: true))
+            try context.save()
+        }
+
+        let context = ModelContext(try .forApp(ModelConfiguration(url: storeURL)))
+
+        XCTAssertEqual(try context.fetch(FetchDescriptor<BalanceEntry>()).map(\.isStartingBalance), [true])
     }
 
     func testDeletedDefaultCategoriesStayDeletedAfterRelaunch() throws {

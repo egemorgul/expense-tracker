@@ -20,6 +20,10 @@ Amounts are in euros in both apps, and the currency isn't configurable yet.
 - **Overview:** your balances, what you've spent this month, and your five most recent expenses
 - **Accounts:** separate Main, Savings and Cash balances, with money added to or moved between them
 - **Balance history:** every addition and transfer, where deleting an entry undoes its effect
+- **Editing:** swipe right on an expense or on money you added to change it, or left to delete it
+- **Starting balance:** mark money you already had, so it counts towards your balance but not as income
+- **Widgets:** your balances and a quick way to add an expense, on the home screen or lock screen
+- **Transactions:** money in and out by day with each day's total, under the period's income, expenses and overall total
 - **Activity:** expenses grouped by day, for any month or custom date range
 - **Spending:** totals and percentage shares by category for the same period
 - **Categories:** seven defaults (Food, Transport, Shopping, Health, Entertainment, Bills, Other), plus your own with an emoji
@@ -29,7 +33,7 @@ An expense can take an account below zero, and the app warns you when it will. A
 
 ### Limitations
 
-- Expenses can be added and deleted, but not edited.
+- Transfers can be deleted, but not edited.
 - Categories can't be renamed. A category with expenses can't be deleted, and neither can the last one.
 - There's no sync, backup or export, so the iPhone holds the only copy of your data.
 
@@ -110,15 +114,21 @@ expense-tracker/
 │   ├── ExpenseTracker/            # App source
 │   │   ├── ExpenseTrackerApp.swift    # Entry point and data store setup
 │   │   ├── ContentView.swift          # Tabs and the Overview screen
+│   │   ├── TransactionsView.swift     # Money in and out by day
+│   │   ├── MoneyTransaction.swift     # Combines income and expenses, with their totals
 │   │   ├── ActivityView.swift         # Expenses by day
 │   │   ├── SpendingView.swift         # Totals by category
-│   │   ├── AddExpenseView.swift       # New expense form
-│   │   ├── BalanceViews.swift         # Add or move money, balance history
+│   │   ├── ExpenseFormView.swift      # Add or edit an expense
+│   │   ├── BalanceViews.swift         # Add, edit or move money, balance history
+│   │   ├── WidgetPublishing.swift     # Sends balances to the widgets
 │   │   ├── CategoriesView.swift       # Manage categories
 │   │   ├── Expense.swift              # Expense and category models
-│   │   ├── Balance.swift              # Accounts, entries and balance calculation
+│   │   ├── Balance.swift              # Entries and balance calculation
 │   │   ├── Period.swift               # Date ranges and the period picker
 │   │   └── Theme.swift                # Colors and shared components
+│   ├── ExpenseTrackerWidgets/     # Balance and quick-add widgets
+│   ├── Shared/                    # Accounts, colors, the logo and the widget snapshot, used by both targets
+│   ├── Branding/                  # App icon source, one-colour logo and the concepts considered
 │   ├── ExpenseTrackerTests/       # Unit and migration tests
 │   └── ExpenseTrackerUITests/     # UI flow tests
 ├── app.py                         # Flask routes and template filters

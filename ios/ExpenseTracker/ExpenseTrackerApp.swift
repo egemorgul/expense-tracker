@@ -6,6 +6,7 @@ struct ExpenseTrackerApp: App {
     private let container: ModelContainer
 
     init() {
+        WarmAppearance.apply()
         let inMemory = ProcessInfo.processInfo.arguments.contains("-uiTesting")
         do {
             container = try .forApp(ModelConfiguration(isStoredInMemoryOnly: inMemory))

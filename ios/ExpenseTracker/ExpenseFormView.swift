@@ -1,26 +1,44 @@
 import SwiftData
 import SwiftUI
 
-struct AddExpenseView: View {
+/// Adds a new expense, or changes an existing one when given `editing`.
+struct ExpenseFormView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \ExpenseCategory.sortOrder) private var categories: [ExpenseCategory]
 
     let balances: Balances
+    private let expense: Expense?
 
-    @State private var amountText = ""
-    @State private var account = BalanceAccount.main
-    @State private var categoryName = ""
-    @State private var note = ""
-    @State private var date = Date.now
+    @State private var amountText: String
+    @State private var account: BalanceAccount
+    @State private var categoryName: String
+    @State private var note: String
+    @State private var date: Date
+
+    init(balances: Balances, editing expense: Expense? = nil) {
+        self.balances = balances
+        self.expense = expense
+        _amountText = State(initialValue: expense.map { "\($0.amount)" } ?? "")
+        _account = State(initialValue: expense?.account ?? .main)
+        _categoryName = State(initialValue: expense?.categoryName ?? "")
+        _note = State(initialValue: expense?.note ?? "")
+        _date = State(initialValue: expense?.date ?? .now)
+    }
 
     private var amount: Decimal? {
         Decimal(amountInput: amountText).flatMap { $0 > 0 ? $0 : nil }
     }
 
+    /// The balance already has the edited expense taken out, so its own amount is available to it.
+    private var available: Decimal {
+        guard let expense, expense.account == account else { return balances[account] }
+        return balances[account] + expense.amount
+    }
+
     private var exceedsBalance: Bool {
         guard let amount else { return false }
-        return amount > balances[account]
+        return amount > available
     }
 
     var body: some View {
@@ -40,6 +58,7 @@ struct AddExpenseView: View {
                     }
                     .padding(.vertical, 4)
                 }
+                .warmRows()
 
                 Section {
                     Picker("Pay from", selection: $account) {
@@ -55,21 +74,26 @@ struct AddExpenseView: View {
                         Text("This will take \(account.title) below zero.")
                             .foregroundStyle(Color.negative)
                     } else {
-                        Text("\(balances[account].euros) available.")
+                        Text("\(available.euros) available.")
                     }
                 }
+                .warmRows()
 
                 Section {
                     TextField("Note (optional)", text: $note)
 
                     DatePicker("Date", selection: $date, displayedComponents: .date)
                 }
+                .warmRows()
             }
+            .warmPage()
             .scrollDismissesKeyboard(.interactively)
-            .navigationTitle("Add expense")
+            .navigationTitle(expense == nil ? "Add expense" : "Edit expense")
             .navigationBarTitleDisplayMode(.inline)
             .onAppear {
-                categoryName = categories.first?.name ?? ""
+                if categoryName.isEmpty {
+                    categoryName = categories.first?.name ?? ""
+                }
             }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -86,7 +110,15 @@ struct AddExpenseView: View {
 
     private func save() {
         guard let amount else { return }
-        modelContext.insert(Expense(amount: amount, categoryName: categoryName, note: note, date: date, account: account))
+        if let expense {
+            expense.amount = amount
+            expense.categoryName = categoryName
+            expense.note = note
+            expense.date = date
+            expense.accountName = account.rawValue
+        } else {
+            modelContext.insert(Expense(amount: amount, categoryName: categoryName, note: note, date: date, account: account))
+        }
         UINotificationFeedbackGenerator().notificationOccurred(.success)
         dismiss()
     }
@@ -110,7 +142,7 @@ private struct CategoryChip: View {
             }
             .frame(maxWidth: .infinity, minHeight: 64)
             .background(
-                isSelected ? category.color.opacity(0.2) : Color(.tertiarySystemFill),
+                isSelected ? category.color.opacity(0.22) : Color.paper,
                 in: RoundedRectangle(cornerRadius: 12, style: .continuous)
             )
             .overlay {

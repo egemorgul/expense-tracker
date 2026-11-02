@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024"><defs>
+<linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FAEEDC"/><stop offset="1" stop-color="#F1DAB9"/></linearGradient>
+<radialGradient id="glow" gradientUnits="userSpaceOnUse" cx="512" cy="742" r="300"><stop offset="0" stop-color="#FF8A2B" stop-opacity=".72"/><stop offset="1" stop-color="#FF8A2B" stop-opacity="0"/></radialGradient>
+<radialGradient id="coin" gradientUnits="userSpaceOnUse" cx="478" cy="694" r="190"><stop offset="0" stop-color="#FFDC92"/><stop offset=".6" stop-color="#F8B040"/><stop offset="1" stop-color="#E58C22"/></radialGradient>
+<clipPath id="in"><path d="M292 1024V512A220 220 0 0 1 732 512V1024Z"/></clipPath>
+</defs><rect width="1024" height="1024" fill="url(#bg)"/><path fill="#D8622E" d="M140 1024V512A372 372 0 0 1 884 512V1024Z"/><path fill="#A9411F" d="M216 1024V512A296 296 0 0 1 808 512V1024Z"/><path fill="#6E2614" d="M292 1024V512A220 220 0 0 1 732 512V1024Z"/><path fill="#2F100A" d="M368 1024V512A144 144 0 0 1 656 512V1024Z"/>
+<rect width="1024" height="1024" fill="url(#glow)" clip-path="url(#in)"/><circle cx="512" cy="742" r="122" fill="url(#coin)"/><path fill="#C96F14" d="M567.0 697.8A66 66 0 1 0 567.0 786.2L550.7 771.4A44 44 0 1 1 550.7 712.6Z"/><rect x="440" y="718" width="84" height="15" rx="7.5" fill="#C96F14"/><rect x="440" y="751" width="84" height="15" rx="7.5" fill="#C96F14"/></svg>
