@@ -25,7 +25,7 @@ struct ExpenseTrackerApp: App {
 
 extension ModelContainer {
     static func forApp(_ configuration: ModelConfiguration) throws -> ModelContainer {
-        let container = try ModelContainer(for: Expense.self, ExpenseCategory.self, BalanceEntry.self, configurations: configuration)
+        let container = try ModelContainer(for: Expense.self, ExpenseCategory.self, BalanceEntry.self, Budget.self, configurations: configuration)
         try ExpenseCategory.seedDefaultsIfNeeded(in: ModelContext(container))
         return container
     }

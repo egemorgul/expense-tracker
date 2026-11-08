@@ -9,6 +9,10 @@ struct ContentView: View {
     @Query(sort: \Expense.date, order: .reverse) private var expenses: [Expense]
     @Query(sort: \ExpenseCategory.sortOrder) private var categories: [ExpenseCategory]
     @Query private var balanceEntries: [BalanceEntry]
+    @Query private var budgets: [Budget]
+    @Environment(\.scenePhase) private var scenePhase
+    /// Moves on when the day changes, so the budget gets each new day's figure.
+    @State private var now = Date.now
     @State private var tab = AppTab.overview
     @State private var isAddingExpense = false
     @State private var expenseBeingEdited: EditRequest<Expense>?
@@ -20,12 +24,16 @@ struct ContentView: View {
         let categoriesByName = categories.byName
         let addExpense = { isAddingExpense = true }
         let editExpense = { (expense: Expense) in expenseBeingEdited = EditRequest(expense) }
+        let budget = budgets.first
+        let budgetSnapshot = BudgetSnapshot(plan: budget?.plan, expenses: expenses, at: now)
 
         TabView(selection: $tab) {
             OverviewView(
                 expenses: expenses,
                 categoriesByName: categoriesByName,
                 balances: balances,
+                budget: budget,
+                budgetStatus: budgetSnapshot.status(at: now),
                 addExpense: addExpense,
                 editExpense: editExpense,
                 showSpending: { tab = .spending },
@@ -71,6 +79,15 @@ struct ContentView: View {
         .task(id: WidgetSnapshot(balances)) {
             WidgetSnapshot(balances).publish()
         }
+        .task(id: budgetSnapshot) {
+            budgetSnapshot.publish()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged)) { _ in
+            now = .now
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { now = .now }
+        }
         .onOpenURL { url in
             // Asking for a second sheet over an open one fails, and would leave this flag stuck on.
             if url == WidgetLink.addExpense, !UIApplication.shared.isPresentingSheet {
@@ -97,10 +114,14 @@ private struct OverviewView: View {
     @State private var isAddingMoney = false
     @State private var isMovingMoney = false
     @State private var isShowingHistory = false
+    @State private var isEditingBudget = false
 
     let expenses: [Expense]
     let categoriesByName: [String: ExpenseCategory]
     let balances: Balances
+    let budget: Budget?
+    /// Nil when there's no budget.
+    let budgetStatus: BudgetStatus?
     let addExpense: () -> Void
     let editExpense: (Expense) -> Void
     let showSpending: () -> Void
@@ -130,6 +151,20 @@ private struct OverviewView: View {
                     .listRowInsets(EdgeInsets())
                     .listRowBackground(Color.clear)
                 }
+
+                Section {
+                    if let budgetStatus {
+                        BudgetCard(status: budgetStatus) { isEditingBudget = true }
+                    } else {
+                        Button {
+                            isEditingBudget = true
+                        } label: {
+                            Label("Set a budget", systemImage: "calendar.badge.plus")
+                                .font(.subheadline.weight(.medium))
+                        }
+                    }
+                }
+                .warmRows()
 
                 Section {
                     HStack(spacing: 12) {
@@ -204,6 +239,10 @@ private struct OverviewView: View {
             }
             .sheet(isPresented: $isMovingMoney) {
                 BalanceEntryView(isTransfer: true, balances: balances)
+                    .warmSheet()
+            }
+            .sheet(isPresented: $isEditingBudget) {
+                BudgetFormView(editing: budget)
                     .warmSheet()
             }
         }

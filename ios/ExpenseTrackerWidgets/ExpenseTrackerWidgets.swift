@@ -5,6 +5,7 @@ import WidgetKit
 struct ExpenseTrackerWidgets: WidgetBundle {
     var body: some Widget {
         BalanceWidget()
+        BudgetWidget()
         QuickAddWidget()
     }
 }
@@ -110,6 +111,164 @@ private struct AccountAmount: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
         }
+    }
+}
+
+// MARK: - Budget
+
+struct BudgetTimelineEntry: TimelineEntry {
+    let date: Date
+    /// Nil until the app has run once.
+    let snapshot: BudgetSnapshot?
+
+    var status: BudgetStatus? {
+        snapshot?.status(at: date)
+    }
+}
+
+struct BudgetProvider: TimelineProvider {
+    func placeholder(in context: Context) -> BudgetTimelineEntry {
+        let start = Calendar.current.date(byAdding: .day, value: -9, to: .now) ?? .now
+        let snapshot = BudgetSnapshot(
+            plan: BudgetPlan(amount: 1000, start: start, end: nil),
+            spending: [BudgetSpending(date: start, amount: 310), BudgetSpending(date: .now, amount: 12)]
+        )
+        return BudgetTimelineEntry(date: .now, snapshot: snapshot)
+    }
+
+    func getSnapshot(in context: Context, completion: @escaping (BudgetTimelineEntry) -> Void) {
+        completion(context.isPreview ? placeholder(in: context) : BudgetTimelineEntry(date: .now, snapshot: .load()))
+    }
+
+    /// Spending only changes in the app, which asks for a reload each time. The day's budget changes
+    /// at midnight, so there's an entry for each of the next week's midnights.
+    func getTimeline(in context: Context, completion: @escaping (Timeline<BudgetTimelineEntry>) -> Void) {
+        let snapshot = BudgetSnapshot.load()
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: .now)
+        let midnights = (1...7).compactMap { calendar.date(byAdding: .day, value: $0, to: today) }
+        let entries = [BudgetTimelineEntry(date: .now, snapshot: snapshot)]
+            + midnights.map { BudgetTimelineEntry(date: $0, snapshot: snapshot) }
+        completion(Timeline(entries: entries, policy: .atEnd))
+    }
+}
+
+struct BudgetWidget: Widget {
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: BudgetSnapshot.widgetKind, provider: BudgetProvider()) { entry in
+            BudgetWidgetView(status: entry.status)
+                .containerBackground(Color.paper, for: .widget)
+        }
+        .configurationDisplayName("Today's budget")
+        .description("See how much you can spend today.")
+        .supportedFamilies([.systemSmall, .accessoryCircular, .accessoryRectangular, .accessoryInline])
+    }
+}
+
+struct BudgetWidgetView: View {
+    @Environment(\.widgetFamily) private var family
+
+    /// Nil when there's no budget.
+    let status: BudgetStatus?
+
+    var body: some View {
+        if case .active(let day) = status {
+            active(day)
+        } else {
+            inactive
+        }
+    }
+
+    @ViewBuilder
+    private func active(_ day: BudgetDay) -> some View {
+        let over = day.leftToday < 0
+        let amount = over ? (-day.leftToday).euros : day.leftToday.euros
+        switch family {
+        case .accessoryInline:
+            Text(over ? "\(amount) over today" : "\(amount) left today")
+        case .accessoryCircular:
+            Gauge(value: day.leftTodayFraction) {
+                Text("Today")
+            } currentValueLabel: {
+                Text(day.leftToday.wholeEuros)
+                    .minimumScaleFactor(0.5)
+            }
+            .gaugeStyle(.accessoryCircularCapacity)
+            .accessibilityLabel(over ? "\(amount) over today's budget" : "\(amount) left today")
+        case .accessoryRectangular:
+            VStack(alignment: .leading, spacing: 0) {
+                Text(over ? "Over today's budget" : "Left today")
+                    .font(.caption)
+                Text(amount)
+                    .font(.system(.title3, design: .serif, weight: .bold))
+                    .monospacedDigit()
+                    .widgetAccentable()
+                Text("of \(day.dailyBudget.euros) · \(day.daysLeft)d left")
+                    .font(.caption2)
+            }
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        default:
+            VStack(alignment: .leading, spacing: 4) {
+                Text(over ? "Over today" : "Left today")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text(amount)
+                    .font(.system(.title, design: .serif, weight: .bold))
+                    .monospacedDigit()
+                    .foregroundStyle(over ? Color.negative : Color.ink)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.5)
+                Text("of \(day.dailyBudget.euros)")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                Spacer(minLength: 0)
+                ProgressView(value: day.spentFraction)
+                    .tint(day.left < 0 ? Color.negative : Color.brand)
+                Text("\(day.left.euros) left · \(day.daysLeft) \(day.daysLeft == 1 ? "day" : "days")")
+                    .font(.caption2)
+                    .foregroundStyle(day.left < 0 ? Color.negative : .secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        }
+    }
+
+    @ViewBuilder
+    private var inactive: some View {
+        let message = switch status {
+        case .upcoming(let starts): "Budget starts \(starts.formatted(.dateTime.day().month(.abbreviated)))"
+        case .ended: "Budget ended"
+        default: "No budget set"
+        }
+        switch family {
+        case .accessoryInline:
+            Text(message)
+        case .accessoryCircular:
+            ZStack {
+                AccessoryWidgetBackground()
+                Image(systemName: "calendar")
+                    .font(.title3)
+            }
+            .accessibilityLabel(message)
+        default:
+            Text(message)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+    }
+}
+
+private extension Decimal {
+    /// Fits the small circular widget, like "€23" or "-€5". Cents are dropped, rounding towards zero.
+    var wholeEuros: String {
+        var value = self
+        var whole = Decimal()
+        NSDecimalRound(&whole, &value, 0, self < 0 ? .up : .down)
+        return whole.formatted(.currency(code: "EUR").precision(.fractionLength(0)))
     }
 }
 

@@ -163,6 +163,61 @@ private enum StoreV4: VersionedSchema {
     }
 }
 
+/// The store as shipped before budgets.
+private enum StoreV5: VersionedSchema {
+    static var versionIdentifier = Schema.Version(5, 0, 0)
+    static var models: [any PersistentModel.Type] { [Expense.self, ExpenseCategory.self, BalanceEntry.self] }
+
+    @Model
+    final class Expense {
+        var amount: Decimal
+        var categoryName: String
+        var note: String
+        var date: Date
+        var accountName: String?
+
+        init(amount: Decimal, categoryName: String, note: String, date: Date, accountName: String?) {
+            self.amount = amount
+            self.categoryName = categoryName
+            self.note = note
+            self.date = date
+            self.accountName = accountName
+        }
+    }
+
+    @Model
+    final class ExpenseCategory {
+        var name: String
+        var icon: String
+        var colorName: String
+        var sortOrder: Int
+
+        init(name: String, icon: String, colorName: String, sortOrder: Int) {
+            self.name = name
+            self.icon = icon
+            self.colorName = colorName
+            self.sortOrder = sortOrder
+        }
+    }
+
+    @Model
+    final class BalanceEntry {
+        var amount: Decimal
+        var sourceName: String?
+        var destinationName: String
+        var date: Date
+        var isStartingBalance: Bool = false
+
+        init(amount: Decimal, sourceName: String?, destinationName: String, date: Date, isStartingBalance: Bool) {
+            self.amount = amount
+            self.sourceName = sourceName
+            self.destinationName = destinationName
+            self.date = date
+            self.isStartingBalance = isStartingBalance
+        }
+    }
+}
+
 final class StoreMigrationTests: XCTestCase {
     private var directory: URL!
     private var storeURL: URL { directory.appending(path: "test.store") }
@@ -294,6 +349,44 @@ final class StoreMigrationTests: XCTestCase {
         let context = ModelContext(try .forApp(ModelConfiguration(url: storeURL)))
 
         XCTAssertEqual(try context.fetch(FetchDescriptor<BalanceEntry>()).map(\.isStartingBalance), [true])
+    }
+
+    func testExistingDataIsKeptAndThereIsNoBudgetYet() throws {
+        let date = Date(timeIntervalSince1970: 1_790_000_000)
+        do {
+            let old = try ModelContainer(for: Schema(versionedSchema: StoreV5.self), configurations: ModelConfiguration(url: storeURL))
+            let context = ModelContext(old)
+            context.insert(StoreV5.ExpenseCategory(name: "Pets", icon: "🐶", colorName: "teal", sortOrder: 0))
+            context.insert(StoreV5.Expense(amount: 9, categoryName: "Pets", note: "Treats", date: date, accountName: "cash"))
+            context.insert(StoreV5.BalanceEntry(amount: 80, sourceName: nil, destinationName: "spending", date: date, isStartingBalance: true))
+            try context.save()
+        }
+
+        let context = ModelContext(try .forApp(ModelConfiguration(url: storeURL)))
+
+        let expenses = try context.fetch(FetchDescriptor<Expense>())
+        XCTAssertEqual(expenses.map(\.amount), [9])
+        XCTAssertEqual(expenses.map(\.note), ["Treats"])
+        XCTAssertEqual(expenses.map(\.date), [date])
+        XCTAssertEqual(expenses.map(\.account), [.cash])
+        XCTAssertEqual(try context.fetch(FetchDescriptor<ExpenseCategory>()).map(\.name), ["Pets"])
+        XCTAssertEqual(try context.fetch(FetchDescriptor<BalanceEntry>()).map(\.isStartingBalance), [true])
+        XCTAssertEqual(try context.fetchCount(FetchDescriptor<Budget>()), 0)
+    }
+
+    func testBudgetSurvivesARelaunch() throws {
+        let start = Date(timeIntervalSince1970: 1_790_000_000)
+        let end = start.addingTimeInterval(86_400 * 10)
+        do {
+            let context = ModelContext(try .forApp(ModelConfiguration(url: storeURL)))
+            context.insert(Budget(plan: BudgetPlan(amount: Decimal(string: "1000.50")!, start: start, end: end)))
+            try context.save()
+        }
+
+        let context = ModelContext(try .forApp(ModelConfiguration(url: storeURL)))
+
+        let budgets = try context.fetch(FetchDescriptor<Budget>())
+        XCTAssertEqual(budgets.map(\.plan), [BudgetPlan(amount: Decimal(string: "1000.50")!, start: start, end: end)])
     }
 
     func testDeletedDefaultCategoriesStayDeletedAfterRelaunch() throws {

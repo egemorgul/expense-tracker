@@ -1,12 +1,6 @@
 import Charts
 import SwiftUI
 
-extension Decimal {
-    var doubleValue: Double {
-        NSDecimalNumber(decimal: self).doubleValue
-    }
-}
-
 extension Date {
     /// The heading for a day in a list of transactions.
     var dayTitle: String {
