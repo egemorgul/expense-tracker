@@ -29,9 +29,9 @@ enum WarmAppearance {
         navigation.configureWithOpaqueBackground()
         navigation.backgroundColor = .paper
         navigation.shadowColor = .clear
-        let ink = UIColor(light: 0x2B1A12, dark: 0xF6E9D8)
-        navigation.titleTextAttributes = [.foregroundColor: ink, .font: serif(style: .headline)]
-        navigation.largeTitleTextAttributes = [.foregroundColor: ink, .font: serif(style: .largeTitle)]
+        // Titles use the system sans. The serif is kept for money, see `Font.money`.
+        navigation.titleTextAttributes = [.foregroundColor: UIColor.ink, .font: semibold(style: .headline)]
+        navigation.largeTitleTextAttributes = [.foregroundColor: UIColor.ink, .font: semibold(style: .largeTitle)]
         UINavigationBar.appearance().standardAppearance = navigation
         UINavigationBar.appearance().scrollEdgeAppearance = navigation
         UINavigationBar.appearance().compactAppearance = navigation
@@ -39,15 +39,14 @@ enum WarmAppearance {
         let tabs = UITabBarAppearance()
         tabs.configureWithOpaqueBackground()
         tabs.backgroundColor = .paper
-        tabs.shadowColor = UIColor(light: 0xE6D6BE, dark: 0x3A241A)
+        tabs.shadowColor = UIColor.ink.withAlphaComponent(0.08)
         UITabBar.appearance().standardAppearance = tabs
         UITabBar.appearance().scrollEdgeAppearance = tabs
     }
 
-    private static func serif(style: UIFont.TextStyle) -> UIFont {
-        let base = UIFontDescriptor.preferredFontDescriptor(withTextStyle: style).withSymbolicTraits(.traitBold)
-            ?? UIFontDescriptor.preferredFontDescriptor(withTextStyle: style)
-        return UIFont(descriptor: base.withDesign(.serif) ?? base, size: 0)
+    private static func semibold(style: UIFont.TextStyle) -> UIFont {
+        let size = UIFont.preferredFont(forTextStyle: style).pointSize
+        return UIFontMetrics(forTextStyle: style).scaledFont(for: .systemFont(ofSize: size, weight: .semibold))
     }
 }
 
@@ -71,7 +70,7 @@ extension View {
                     .padding(.horizontal, 20)
                     .frame(minHeight: 50)
                     .background(Color.brand, in: Capsule())
-                    .shadow(color: Color.heroBottom.opacity(0.35), radius: 12, y: 6)
+                    .shadow(color: .black.opacity(0.14), radius: 8, y: 4)
             }
             .buttonStyle(PressableButtonStyle())
             .frame(maxWidth: .infinity, alignment: .trailing)
@@ -111,15 +110,32 @@ extension View {
     }
 }
 
+/// A category's line icon in its color, which matches its part of the spending charts.
 struct CategoryBadge: View {
-    let icon: String
-    let color: Color
+    let category: ExpenseCategory?
 
     var body: some View {
-        Text(icon)
-            .font(.title3)
-            .frame(width: 40, height: 40)
-            .background(color.opacity(0.2), in: Circle())
+        let color = category?.color ?? CategoryColor.gray.color
+        Image(systemName: category?.symbolName ?? ExpenseCategory.defaultIcon)
+            .font(.system(size: 16, weight: .medium))
+            .foregroundStyle(color)
+            .frame(width: 36, height: 36)
+            .background(color.opacity(0.14), in: Circle())
+            .accessibilityHidden(true)
+    }
+}
+
+/// A neutral icon in the same place as a category badge, for rows that aren't expenses.
+struct SymbolBadge: View {
+    let systemName: String
+
+    var body: some View {
+        Image(systemName: systemName)
+            .font(.system(size: 16, weight: .medium))
+            .foregroundStyle(.secondary)
+            .frame(width: 36, height: 36)
+            .background(Color.ink.opacity(0.06), in: Circle())
+            .accessibilityHidden(true)
     }
 }
 
@@ -140,10 +156,9 @@ struct ExpenseRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            CategoryBadge(icon: category?.icon ?? ExpenseCategory.defaultIcon, color: category?.color ?? .gray)
+            CategoryBadge(category: category)
             VStack(alignment: .leading, spacing: 2) {
                 Text(expense.categoryName)
-                    .font(.body.weight(.medium))
                 if !meta.isEmpty {
                     Text(meta)
                         .font(.caption)
@@ -153,8 +168,7 @@ struct ExpenseRow: View {
             }
             Spacer()
             Text(showsSign ? (-expense.amount).signedEuros : expense.amount.euros)
-                .font(.system(.body, design: .serif, weight: .semibold))
-                .monospacedDigit()
+                .font(.money(.body))
         }
     }
 }
@@ -183,6 +197,17 @@ struct AmountField: View {
     @Binding var text: String
     @FocusState private var isFocused: Bool
 
+    /// Laid out like every other amount in the app, which follows the region, like "0,00 €".
+    private static let sample = Decimal(0).euros
+    private static let symbolComesFirst = sample.hasPrefix("€")
+    private static let placeholder = "0\(Locale.current.decimalSeparator ?? ".")00"
+
+    private var symbol: some View {
+        Text("€")
+            .foregroundStyle(.secondary)
+            .accessibilityHidden(true)
+    }
+
     private var isInvalid: Bool {
         !text.isEmpty && Decimal(amountInput: text) == nil
     }
@@ -190,21 +215,21 @@ struct AmountField: View {
     var body: some View {
         VStack(spacing: 6) {
             HStack(spacing: 4) {
-                Text("€")
-                    .foregroundStyle(.secondary)
-                    .accessibilityHidden(true)
-                TextField("0.00", text: $text)
+                if Self.symbolComesFirst { symbol }
+                // The field is as wide as its placeholder, so the placeholder goes once typing starts.
+                // Otherwise a symbol after the amount, like "18 €", would sit apart from it.
+                TextField(text.isEmpty ? Self.placeholder : "", text: $text)
                     .tint(.brand)
                     .keyboardType(.decimalPad)
                     .focused($isFocused)
                     .fixedSize()
                     .accessibilityLabel("Amount (€)")
+                if !Self.symbolComesFirst { symbol }
             }
-            .font(.system(.largeTitle, design: .serif, weight: .bold))
-            .monospacedDigit()
+            .font(.money(.largeTitle, prominent: true))
 
             if isInvalid {
-                Label("Use at most two decimals, like 12.50.", systemImage: "exclamationmark.circle")
+                Label("Use at most two decimals, like 12.50", systemImage: "exclamationmark.circle")
                     .font(.caption)
                     .foregroundStyle(Color.negative)
             }

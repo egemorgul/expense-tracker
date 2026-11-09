@@ -27,12 +27,11 @@ struct ActivityView: View {
                     } header: {
                         HStack {
                             Text(day.date.dayTitle)
-                                .font(.system(.subheadline, design: .serif, weight: .semibold))
+                                .font(.subheadline.weight(.medium))
                                 .textCase(nil)
                             Spacer()
                             Text(day.expenses.total.euros)
-                                .font(.system(.subheadline, design: .serif, weight: .semibold))
-                                .monospacedDigit()
+                                .font(.money(.subheadline))
                         }
                     }
                     .warmRows()
@@ -44,7 +43,7 @@ struct ActivityView: View {
                     ContentUnavailableView(
                         "No expenses",
                         systemImage: "tray",
-                        description: Text("Nothing was spent in this period.")
+                        description: Text("Nothing was spent in this period")
                     )
                 }
             }

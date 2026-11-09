@@ -32,12 +32,11 @@ struct TransactionsView: View {
                     } header: {
                         HStack {
                             Text(day.date.dayTitle)
-                                .font(.system(.subheadline, design: .serif, weight: .semibold))
+                                .font(.subheadline.weight(.medium))
                                 .textCase(nil)
                             Spacer()
                             Text(day.total.signedEuros)
-                                .font(.system(.subheadline, design: .serif, weight: .semibold))
-                                .monospacedDigit()
+                                .font(.money(.subheadline))
                                 .foregroundStyle(day.total.signColor)
                         }
                     }
@@ -50,7 +49,7 @@ struct TransactionsView: View {
                     ContentUnavailableView(
                         "No transactions",
                         systemImage: "arrow.up.arrow.down",
-                        description: Text("No money came in or went out in this period.")
+                        description: Text("No money came in or went out in this period")
                     )
                 }
             }
@@ -87,8 +86,9 @@ private struct SummaryColumns: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
-            column("Income", value: summary.income.euros, color: .positive)
-            column("Expenses", value: summary.expenses.euros, color: .negative)
+            // Zero stays neutral, since only a real amount in or out is news.
+            column("Income", value: summary.income.euros, color: summary.income > 0 ? .positive : .primary)
+            column("Expenses", value: summary.expenses.euros, color: summary.expenses > 0 ? .negative : .primary)
             column("Total", value: summary.total.signedEuros, color: summary.total.signColor)
         }
         .padding(.vertical, 4)
@@ -100,8 +100,7 @@ private struct SummaryColumns: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
             Text(value)
-                .font(.system(.subheadline, design: .serif, weight: .bold))
-                .monospacedDigit()
+                .font(.money(.subheadline, prominent: true))
                 .foregroundStyle(color)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
@@ -116,15 +115,9 @@ private struct IncomeRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: "plus")
-                .font(.subheadline.bold())
-                .foregroundStyle(Color.positive)
-                .frame(width: 40, height: 40)
-                .background(Color.positive.opacity(0.15), in: Circle())
-                .accessibilityHidden(true)
+            SymbolBadge(systemName: "arrow.down.left")
             VStack(alignment: .leading, spacing: 2) {
                 Text("Income")
-                    .font(.body.weight(.medium))
                 if entry.destination != .main {
                     Text("to \(entry.destination.title)")
                         .font(.caption)
@@ -133,8 +126,7 @@ private struct IncomeRow: View {
             }
             Spacer()
             Text(entry.amount.signedEuros)
-                .font(.system(.body, design: .serif, weight: .semibold))
-                .monospacedDigit()
+                .font(.money(.body))
                 .foregroundStyle(Color.positive)
         }
     }

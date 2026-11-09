@@ -87,7 +87,7 @@ struct BalanceWidgetView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
         } else {
-            Text("Open Expenses to see your balances.")
+            Text("Open Expenses to see your balances")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -105,8 +105,7 @@ private struct AccountAmount: View {
                 .font(.caption2)
                 .foregroundStyle(.secondary)
             Text(value.euros)
-                .font(.system(font, design: .serif, weight: .bold))
-                .monospacedDigit()
+                .font(.money(font, prominent: true))
                 .foregroundStyle(value < 0 ? Color.negative : Color.ink)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
@@ -200,8 +199,7 @@ struct BudgetWidgetView: View {
                 Text(over ? "Over today's budget" : "Left today")
                     .font(.caption)
                 Text(amount)
-                    .font(.system(.title3, design: .serif, weight: .bold))
-                    .monospacedDigit()
+                    .font(.money(.title3, prominent: true))
                     .widgetAccentable()
                 Text("of \(day.dailyBudget.euros) · \(day.daysLeft)d left")
                     .font(.caption2)
@@ -215,8 +213,7 @@ struct BudgetWidgetView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Text(amount)
-                    .font(.system(.title, design: .serif, weight: .bold))
-                    .monospacedDigit()
+                    .font(.money(.title, prominent: true))
                     .foregroundStyle(over ? Color.negative : Color.ink)
                     .lineLimit(1)
                     .minimumScaleFactor(0.5)
@@ -315,7 +312,7 @@ struct QuickAddWidgetView: View {
             ZStack {
                 AccessoryWidgetBackground()
                 Image(systemName: "plus")
-                    .font(.title2.bold())
+                    .font(.title2.weight(.medium))
             }
             .accessibilityLabel("Add expense")
         case .accessoryInline:
@@ -325,7 +322,7 @@ struct QuickAddWidgetView: View {
                 HearthMark()
                     .frame(height: 84)
                 Text("Add expense")
-                    .font(.system(.subheadline, design: .serif, weight: .semibold))
+                    .font(.subheadline.weight(.medium))
                     .foregroundStyle(Color.ink)
             }
         }

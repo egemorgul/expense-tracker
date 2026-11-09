@@ -51,6 +51,14 @@ struct WidgetSnapshot: Codable, Equatable {
     }
 }
 
+extension Font {
+    /// Money is always set in the serif with even-width figures, like entries in a ledger. Titles,
+    /// labels and buttons use the system sans, so amounts stand apart from everything else.
+    static func money(_ style: Font.TextStyle, prominent: Bool = false) -> Font {
+        .system(style, design: .serif, weight: prominent ? .semibold : .medium).monospacedDigit()
+    }
+}
+
 extension Decimal {
     var euros: String {
         formatted(.currency(code: "EUR"))
@@ -58,11 +66,14 @@ extension Decimal {
 }
 
 extension Color {
-    /// The page, like warm paper, and the cards that sit on it.
+    /// The page, like warm paper, and the cards that sit on it. Kept close to neutral, so the
+    /// balance card and the category colors carry the warmth.
     static let paper = Color(uiColor: .paper)
-    static let card = Color(light: 0xFFFBF3, dark: 0x2C1A12)
+    static let card = Color(light: 0xFFFDF9, dark: 0x211D1A)
     /// Text. Warm brown-black rather than pure black.
-    static let ink = Color(light: 0x2B1A12, dark: 0xF6E9D8)
+    static let ink = Color(uiColor: .ink)
+    /// Hairlines around cards that sit straight on the page.
+    static let hairline = Color(uiColor: .ink).opacity(0.08)
 
     /// Terracotta from the logo in light mode, and its glowing coin in dark mode.
     static let brand = Color(light: 0xB4471E, dark: 0xF4A84A)
@@ -94,7 +105,8 @@ extension Color {
 }
 
 extension UIColor {
-    static let paper = UIColor(light: 0xF8EFE0, dark: 0x1B0F0A)
+    static let paper = UIColor(light: 0xF7F3EC, dark: 0x171412)
+    static let ink = UIColor(light: 0x1F1B16, dark: 0xEFE9DE)
 
     convenience init(light: UInt32, dark: UInt32) {
         self.init { $0.userInterfaceStyle == .dark ? UIColor(hex: dark) : UIColor(hex: light) }

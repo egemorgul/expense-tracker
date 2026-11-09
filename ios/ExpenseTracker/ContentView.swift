@@ -32,6 +32,7 @@ struct ContentView: View {
                 expenses: expenses,
                 categoriesByName: categoriesByName,
                 balances: balances,
+                today: now,
                 budget: budget,
                 budgetStatus: budgetSnapshot.status(at: now),
                 addExpense: addExpense,
@@ -119,6 +120,7 @@ private struct OverviewView: View {
     let expenses: [Expense]
     let categoriesByName: [String: ExpenseCategory]
     let balances: Balances
+    let today: Date
     let budget: Budget?
     /// Nil when there's no budget.
     let budgetStatus: BudgetStatus?
@@ -135,8 +137,8 @@ private struct OverviewView: View {
         NavigationStack {
             List {
                 Section {
-                    Text(greeting)
-                        .font(.system(.largeTitle, design: .serif, weight: .bold))
+                    Text(today.formatted(.dateTime.weekday(.wide).day().month(.wide)))
+                        .font(.largeTitle.weight(.semibold))
                         .listRowInsets(EdgeInsets())
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
@@ -168,8 +170,8 @@ private struct OverviewView: View {
 
                 Section {
                     HStack(spacing: 12) {
-                        AccountTile(account: .savings, systemImage: "building.columns.fill", tint: .positive, caption: "Set aside", value: balances[.savings])
-                        AccountTile(account: .cash, systemImage: "banknote.fill", tint: .coinDark, caption: "On hand", value: balances[.cash])
+                        AccountTile(account: .savings, systemImage: "building.columns", caption: "Set aside", value: balances[.savings])
+                        AccountTile(account: .cash, systemImage: "banknote", caption: "On hand", value: balances[.cash])
                     }
                     .listRowInsets(EdgeInsets())
                     .listRowBackground(Color.clear)
@@ -200,7 +202,7 @@ private struct OverviewView: View {
                 } header: {
                     HStack {
                         Text("Recent")
-                            .font(.system(.subheadline, design: .serif, weight: .semibold))
+                            .font(.subheadline.weight(.medium))
                             .textCase(nil)
                         Spacer()
                         if expenses.count > Self.recentCount {
@@ -248,13 +250,6 @@ private struct OverviewView: View {
         }
     }
 
-    private var greeting: String {
-        switch Calendar.current.component(.hour, from: .now) {
-        case 5..<12: "Good morning"
-        case 12..<18: "Good afternoon"
-        default: "Good evening"
-        }
-    }
 }
 
 private struct MainBalanceCard: View {
@@ -265,25 +260,24 @@ private struct MainBalanceCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .bottom, spacing: 12) {
-            VStack(alignment: .leading, spacing: 4) {
-                if balance < 0 {
-                    Label("Main balance overdrawn", systemImage: "exclamationmark.triangle.fill")
-                        .font(.subheadline.weight(.medium))
-                        .foregroundStyle(Color.heroNegative)
-                } else {
-                    Text("Main balance")
-                        .font(.subheadline.weight(.medium))
-                        .opacity(0.85)
+                VStack(alignment: .leading, spacing: 4) {
+                    if balance < 0 {
+                        Label("Main balance overdrawn", systemImage: "exclamationmark.triangle.fill")
+                            .font(.subheadline.weight(.medium))
+                            .foregroundStyle(Color.heroNegative)
+                    } else {
+                        Text("Main balance")
+                            .font(.subheadline.weight(.medium))
+                            .opacity(0.85)
+                    }
+                    Text(balance.euros)
+                        .font(.money(.largeTitle, prominent: true))
+                        .foregroundStyle(balance < 0 ? Color.heroNegative : Color.heroText)
+                        .minimumScaleFactor(0.5)
+                        .lineLimit(1)
+                        .contentTransition(.numericText())
+                        .animation(.default, value: balance)
                 }
-                Text(balance.euros)
-                    .font(.system(.largeTitle, design: .serif, weight: .bold))
-                    .monospacedDigit()
-                    .foregroundStyle(balance < 0 ? Color.heroNegative : Color.heroText)
-                    .minimumScaleFactor(0.5)
-                    .lineLimit(1)
-                    .contentTransition(.numericText())
-                    .animation(.default, value: balance)
-            }
                 Spacer(minLength: 0)
                 HearthMark()
                     .frame(height: 72)
@@ -315,7 +309,7 @@ private struct CardButton: View {
     var body: some View {
         Button(action: action) {
             Label(title, systemImage: systemImage)
-                .font(.subheadline.weight(.semibold))
+                .font(.subheadline.weight(.medium))
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
                 .frame(maxWidth: .infinity, minHeight: 44)
@@ -328,7 +322,6 @@ private struct CardButton: View {
 private struct AccountTile: View {
     let account: BalanceAccount
     let systemImage: String
-    let tint: Color
     let caption: String
     let value: Decimal
 
@@ -336,17 +329,14 @@ private struct AccountTile: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
                 Image(systemName: systemImage)
-                    .font(.caption)
-                    .foregroundStyle(tint)
-                    .frame(width: 28, height: 28)
-                    .background(tint.opacity(0.15), in: Circle())
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
                     .accessibilityHidden(true)
                 Text(account.title)
                     .font(.subheadline.weight(.medium))
             }
             Text(value.euros)
-                .font(.system(.title2, design: .serif, weight: .bold))
-                .monospacedDigit()
+                .font(.money(.title2, prominent: true))
                 .foregroundStyle(value < 0 ? Color.negative : Color.ink)
                 .minimumScaleFactor(0.6)
                 .lineLimit(1)
@@ -354,10 +344,13 @@ private struct AccountTile: View {
                 .font(.caption)
                 .foregroundStyle(value < 0 ? Color.negative : .secondary)
         }
-        .padding(14)
+        .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.card, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .shadow(color: Color.heroBottom.opacity(0.08), radius: 8, y: 3)
+        .overlay {
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .strokeBorder(Color.hairline)
+        }
     }
 }
 
@@ -381,8 +374,7 @@ private struct MonthSummary: View {
                         .accessibilityHidden(true)
                 }
                 Text(total.euros)
-                    .font(.system(.title, design: .serif, weight: .bold))
-                    .monospacedDigit()
+                    .font(.money(.title, prominent: true))
                     .foregroundStyle(.primary)
                     .minimumScaleFactor(0.6)
                     .lineLimit(1)

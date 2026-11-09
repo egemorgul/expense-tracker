@@ -22,7 +22,7 @@ final class ExpenseFlowUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Today"].waitForExistence(timeout: 15))
         app.tabBars.buttons["Overview"].tap()
 
-        let expense = app.cells.containing(.staticText, identifier: "🍕").firstMatch
+        let expense = app.cells.containing(.staticText, identifier: "Food").firstMatch
         XCTAssertTrue(scrollClearOfAddButton(expense))
         tapSwipeAction("Delete", on: expense)
 
@@ -63,7 +63,7 @@ final class ExpenseFlowUITests: XCTestCase {
         type("5", into: app.textFields["Amount (€)"])
         app.buttons["Pets"].tap()
         app.buttons["Save"].tap()
-        let expense = app.cells.containing(.staticText, identifier: "🏷️").firstMatch
+        let expense = app.cells.containing(.staticText, identifier: "Pets").firstMatch
         XCTAssertTrue(scrollClearOfAddButton(expense))
 
         app.buttons["Categories"].tap()
@@ -72,6 +72,7 @@ final class ExpenseFlowUITests: XCTestCase {
         XCTAssertTrue(scrollTo(usedPets))
         usedPets.swipeLeft()
         XCTAssertFalse(app.buttons["Delete"].waitForExistence(timeout: 2))
+        XCTAssertFalse(app.navigationBars["Pets"].exists, "A swipe shouldn't open the icon picker")
         app.buttons["Done"].tap()
 
         tapSwipeAction("Delete", on: expense)
@@ -85,6 +86,21 @@ final class ExpenseFlowUITests: XCTestCase {
         XCTAssertTrue(unusedPets.waitForNonExistence(timeout: 15))
     }
 
+    func testCategoryIconCanBeChangedWithASwipe() {
+        app.buttons["Categories"].tap()
+        let food = categoryRow("Food", usage: "Not used")
+        XCTAssertTrue(food.waitForExistence(timeout: 15))
+        tapSwipeAction("Icon", on: food)
+
+        XCTAssertTrue(app.navigationBars["Food"].waitForExistence(timeout: 15))
+        // The new-category picker in the sheet underneath has the same icons.
+        let car = app.otherElements["Icons for Food"].buttons["car"]
+        car.tap()
+        XCTAssertTrue(car.isSelected)
+        app.navigationBars["Food"].buttons["Done"].tap()
+        XCTAssertTrue(app.navigationBars["Categories"].waitForExistence(timeout: 15))
+    }
+
     func testDuplicateCategoryNameIsRejected() {
         app.buttons["Categories"].tap()
         let add = app.buttons["Add category"]
@@ -92,7 +108,7 @@ final class ExpenseFlowUITests: XCTestCase {
         XCTAssertFalse(add.isEnabled)
 
         type("food", into: app.textFields["Name"])
-        XCTAssertTrue(app.staticTexts["That category already exists."].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.staticTexts["That category already exists"].waitForExistence(timeout: 15))
         XCTAssertFalse(add.isEnabled)
     }
 
@@ -104,7 +120,7 @@ final class ExpenseFlowUITests: XCTestCase {
 
         app.buttons["Move money"].tap()
         type("90", into: app.textFields["Amount (€)"])
-        XCTAssertTrue(app.staticTexts["That's more than this balance holds."].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.staticTexts["That's more than this balance holds"].waitForExistence(timeout: 15))
         XCTAssertFalse(app.buttons["Save"].isEnabled)
 
         app.textFields["Amount (€)"].typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 2) + "30")
@@ -207,7 +223,7 @@ final class ExpenseFlowUITests: XCTestCase {
         let amount = app.textFields["Amount (€)"]
         XCTAssertTrue(amount.waitForExistence(timeout: 15))
         XCTAssertEqual(amount.value as? String, "20")
-        XCTAssertTrue(app.staticTexts["\(euros("80")) available."].exists, "The expense's own amount should count as available")
+        XCTAssertTrue(app.staticTexts["\(euros("80")) available"].exists, "The expense's own amount should count as available")
 
         typeAtEnd(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 2) + "5", into: amount)
         app.buttons["Transport"].tap()
@@ -378,7 +394,7 @@ final class ExpenseFlowUITests: XCTestCase {
     private func tapSwipeAction(_ title: String, on row: XCUIElement) {
         let button = app.buttons[title].firstMatch
         for _ in 0..<3 {
-            if title == "Edit" { row.swipeRight() } else { row.swipeLeft() }
+            if title == "Edit" || title == "Icon" { row.swipeRight() } else { row.swipeLeft() }
             if button.waitForExistence(timeout: 3) { break }
         }
         button.tap()

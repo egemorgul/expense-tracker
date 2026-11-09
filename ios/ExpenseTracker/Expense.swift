@@ -24,10 +24,32 @@ enum CategoryColor: String, CaseIterable {
     }
 }
 
+/// Line icons a category can use, from SF Symbols.
+enum CategorySymbol {
+    static let choices = [
+        "fork.knife", "cup.and.saucer", "cart", "bag", "tshirt", "bus",
+        "car", "fuelpump", "airplane", "house", "bolt", "phone",
+        "doc.text", "cross.case", "heart", "dumbbell", "film", "gamecontroller",
+        "book", "graduationcap", "gift", "pawprint", "wrench.and.screwdriver", "scissors",
+        "creditcard", "banknote", "shippingbox", "tag",
+    ]
+
+    /// Categories saved before icons were symbols hold an emoji. These are the closest symbols.
+    static let forEmoji = [
+        "🍕": "fork.knife", "🍔": "fork.knife", "🍽️": "fork.knife", "☕": "cup.and.saucer", "☕️": "cup.and.saucer",
+        "🛒": "cart", "🚌": "bus", "🚗": "car", "⛽": "fuelpump", "✈️": "airplane", "🏠": "house", "🏡": "house",
+        "💡": "bolt", "📱": "phone", "📄": "doc.text", "🧾": "doc.text", "💊": "cross.case", "🏥": "cross.case",
+        "❤️": "heart", "🏋️": "dumbbell", "🎬": "film", "🎮": "gamecontroller", "📚": "book", "📖": "book",
+        "🎓": "graduationcap", "🎁": "gift", "🐶": "pawprint", "🐱": "pawprint", "🔧": "wrench.and.screwdriver",
+        "💇": "scissors", "💳": "creditcard", "💶": "banknote", "💰": "banknote", "📦": "shippingbox",
+        "🛍️": "bag", "👕": "tshirt", "🏷️": "tag",
+    ]
+}
+
 /// Expenses refer to a category by name, so a category can't be renamed without updating them.
 @Model
 final class ExpenseCategory {
-    static let defaultIcon = "🏷️"
+    static let defaultIcon = "tag"
 
     var name: String
     var icon: String
@@ -45,17 +67,23 @@ final class ExpenseCategory {
         (CategoryColor(rawValue: colorName) ?? .gray).color
     }
 
+    /// `icon` holds a symbol name, or an emoji on categories saved before icons were symbols.
+    var symbolName: String {
+        if CategorySymbol.choices.contains(icon) || UIImage(systemName: icon) != nil { return icon }
+        return CategorySymbol.forEmoji[icon] ?? Self.defaultIcon
+    }
+
     /// The category list is never empty after the first launch, because the last one can't be deleted.
     static func seedDefaultsIfNeeded(in context: ModelContext) throws {
         guard try context.fetchCount(FetchDescriptor<ExpenseCategory>()) == 0 else { return }
         let defaults: [(String, String, CategoryColor)] = [
-            ("Food", "🍕", .orange),
-            ("Transport", "🚌", .blue),
-            ("Shopping", "🛍️", .pink),
-            ("Health", "💊", .green),
-            ("Entertainment", "🎬", .purple),
-            ("Bills", "📄", .red),
-            ("Other", "📦", .gray),
+            ("Food", "fork.knife", .orange),
+            ("Transport", "bus", .blue),
+            ("Shopping", "bag", .pink),
+            ("Health", "cross.case", .green),
+            ("Entertainment", "film", .purple),
+            ("Bills", "doc.text", .red),
+            ("Other", "shippingbox", .gray),
         ]
         for (index, category) in defaults.enumerated() {
             context.insert(ExpenseCategory(name: category.0, icon: category.1, color: category.2, sortOrder: index))
@@ -73,12 +101,16 @@ extension Array where Element == ExpenseCategory {
         contains { $0.name.caseInsensitiveCompare(name) == .orderedSame }
     }
 
-    /// Appends to the end of the list, using a color no other category has while any are left.
-    func makeCategory(name: String, icon: String) -> ExpenseCategory {
+    /// A color no other category has while any are left.
+    var nextColor: CategoryColor {
         let usedColors = Set(map(\.colorName))
         let palette = CategoryColor.allCases
-        let color = palette.first { !usedColors.contains($0.rawValue) } ?? palette[count % palette.count]
-        return ExpenseCategory(name: name, icon: icon, color: color, sortOrder: (map(\.sortOrder).max() ?? -1) + 1)
+        return palette.first { !usedColors.contains($0.rawValue) } ?? palette[count % palette.count]
+    }
+
+    /// Appends to the end of the list, in `nextColor`.
+    func makeCategory(name: String, icon: String) -> ExpenseCategory {
+        ExpenseCategory(name: name, icon: icon, color: nextColor, sortOrder: (map(\.sortOrder).max() ?? -1) + 1)
     }
 }
 

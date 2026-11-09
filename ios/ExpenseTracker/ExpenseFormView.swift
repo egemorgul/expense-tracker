@@ -71,10 +71,10 @@ struct ExpenseFormView: View {
                     Text("Pay from")
                 } footer: {
                     if exceedsBalance {
-                        Text("This will take \(account.title) below zero.")
+                        Text("This will take \(account.title) below zero")
                             .foregroundStyle(Color.negative)
                     } else {
-                        Text("\(available.euros) available.")
+                        Text("\(available.euros) available")
                     }
                 }
                 .warmRows()
@@ -131,25 +131,25 @@ private struct CategoryChip: View {
 
     var body: some View {
         Button(action: action) {
-            VStack(spacing: 4) {
-                Text(category.icon)
-                    .font(.title2)
+            VStack(spacing: 8) {
+                Image(systemName: category.symbolName)
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundStyle(category.color)
+                    .accessibilityHidden(true)
                 Text(category.name)
-                    .font(.caption2.weight(isSelected ? .semibold : .regular))
+                    .font(.caption2.weight(isSelected ? .medium : .regular))
                     .foregroundStyle(.primary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
             }
             .frame(maxWidth: .infinity, minHeight: 64)
             .background(
-                isSelected ? category.color.opacity(0.22) : Color.paper,
+                isSelected ? category.color.opacity(0.14) : Color.paper,
                 in: RoundedRectangle(cornerRadius: 12, style: .continuous)
             )
             .overlay {
-                if isSelected {
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .strokeBorder(category.color, lineWidth: 2)
-                }
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .strokeBorder(isSelected ? category.color : .clear, lineWidth: 1.5)
             }
         }
         .buttonStyle(PressableButtonStyle())

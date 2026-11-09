@@ -24,11 +24,11 @@ struct BudgetCard: View {
                     ActiveBudget(day: day)
                 case .upcoming(let starts):
                     Text("Starts \(starts.formatted(.dateTime.day().month(.wide)))")
-                        .font(.system(.title3, design: .serif, weight: .bold))
+                        .font(.title3.weight(.semibold))
                 case .ended(let lastDay):
                     Text("Ended \(lastDay.formatted(.dateTime.day().month(.wide)))")
-                        .font(.system(.title3, design: .serif, weight: .bold))
-                    Text("Tap to plan your next budget.")
+                        .font(.title3.weight(.semibold))
+                    Text("Tap to plan your next budget")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -54,14 +54,14 @@ private struct ActiveBudget: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(day.leftToday < 0 ? "\((-day.leftToday).euros) over" : day.leftToday.euros)
-                .font(.system(.title, design: .serif, weight: .bold))
-                .monospacedDigit()
+                .font(.money(.title, prominent: true))
                 .foregroundStyle(day.leftToday < 0 ? Color.negative : Color.ink)
                 .minimumScaleFactor(0.6)
                 .lineLimit(1)
                 .contentTransition(.numericText())
                 .animation(.default, value: day.leftToday)
-            Text("of today's \(day.dailyBudget.euros)")
+            // Before anything is spent the figure above is the whole daily budget, so this doesn't repeat it.
+            Text(day.spentToday > 0 ? "\(day.spentToday.euros) spent of today's \(day.dailyBudget.euros)" : "Nothing spent yet today")
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
@@ -168,7 +168,7 @@ struct BudgetFormView: View {
             .confirmationDialog("Remove your budget?", isPresented: $isConfirmingRemoval, titleVisibility: .visible) {
                 Button("Remove budget", role: .destructive, action: remove)
             } message: {
-                Text("Your expenses are kept.")
+                Text("Your expenses are kept")
             }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

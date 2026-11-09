@@ -57,10 +57,10 @@ struct BalanceEntryView: View {
                     Text(isTransfer ? "Move from" : "Add to")
                 } footer: {
                     if exceedsBalance {
-                        Text("That's more than this balance holds.")
+                        Text("That's more than this balance holds")
                             .foregroundStyle(Color.negative)
                     } else if isTransfer {
-                        Text("\(balances[account].euros) available.")
+                        Text("\(balances[account].euros) available")
                     }
                 }
                 .warmRows()
@@ -140,17 +140,12 @@ struct BalanceHistoryView: View {
         List {
             Section {
                 if entries.isEmpty {
-                    Text("No money added or moved yet.")
+                    Text("No money added or moved yet")
                         .foregroundStyle(.secondary)
                 }
                 ForEach(entries) { entry in
                     HStack(spacing: 12) {
-                        Image(systemName: entry.source == nil ? "plus" : "arrow.left.arrow.right")
-                            .font(.subheadline.bold())
-                            .foregroundStyle(entry.source == nil ? Color.positive : .brand)
-                            .frame(width: 40, height: 40)
-                            .background((entry.source == nil ? Color.positive : .brand).opacity(0.15), in: Circle())
-                            .accessibilityHidden(true)
+                        SymbolBadge(systemName: entry.source == nil ? "arrow.down.left" : "arrow.left.arrow.right")
                         VStack(alignment: .leading) {
                             Text(title(for: entry))
                             Text(entry.date.formatted(date: .abbreviated, time: .omitted))
@@ -159,8 +154,7 @@ struct BalanceHistoryView: View {
                         }
                         Spacer()
                         Text(entry.amount.euros)
-                            .font(.system(.body, design: .serif, weight: .semibold))
-                            .monospacedDigit()
+                            .font(.money(.body))
                     }
                     .editDeleteSwipeActions(
                         edit: entry.source == nil ? { entryBeingEdited = EditRequest(entry) } : nil,

@@ -21,8 +21,7 @@ struct SpendingView: View {
                                     .font(.subheadline)
                                     .foregroundStyle(.secondary)
                                 Text(total.euros)
-                                    .font(.system(.largeTitle, design: .serif, weight: .bold))
-                                    .monospacedDigit()
+                                    .font(.money(.largeTitle, prominent: true))
                                     .minimumScaleFactor(0.5)
                                     .lineLimit(1)
                             }
@@ -46,7 +45,7 @@ struct SpendingView: View {
                     ContentUnavailableView(
                         "Nothing to show",
                         systemImage: "chart.bar",
-                        description: Text("Add an expense in this period to see where your money goes.")
+                        description: Text("Add an expense in this period to see where your money goes")
                     )
                 }
             }
@@ -72,15 +71,13 @@ private struct CategoryRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            CategoryBadge(icon: category?.icon ?? ExpenseCategory.defaultIcon, color: category?.color ?? .gray)
+            CategoryBadge(category: category)
             VStack(spacing: 6) {
                 HStack {
                     Text(row.categoryName)
-                        .font(.body.weight(.medium))
                     Spacer()
                     Text(row.subtotal.euros)
-                        .font(.system(.body, design: .serif, weight: .semibold))
-                        .monospacedDigit()
+                        .font(.money(.body))
                 }
                 HStack(spacing: 8) {
                     ProgressView(value: share)
