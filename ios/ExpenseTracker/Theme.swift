@@ -145,12 +145,19 @@ struct ExpenseRow: View {
     var showsDate = true
     /// Shows the amount as money going out, for lists that mix in income.
     var showsSign = false
+    /// In a list of one category the name would repeat on every row, so the note leads instead.
+    var showsCategory = true
+
+    private var title: String {
+        if !showsCategory, !expense.note.isEmpty { return expense.note }
+        return expense.categoryName
+    }
 
     private var meta: String {
         var parts: [String] = []
         if showsDate { parts.append(expense.date.formatted(date: .abbreviated, time: .omitted)) }
         if expense.account != .main { parts.append("from \(expense.account.title)") }
-        if !expense.note.isEmpty { parts.append(expense.note) }
+        if showsCategory, !expense.note.isEmpty { parts.append(expense.note) }
         return parts.joined(separator: " · ")
     }
 
@@ -158,7 +165,7 @@ struct ExpenseRow: View {
         HStack(spacing: 12) {
             CategoryBadge(category: category)
             VStack(alignment: .leading, spacing: 2) {
-                Text(expense.categoryName)
+                Text(title)
                 if !meta.isEmpty {
                     Text(meta)
                         .font(.caption)

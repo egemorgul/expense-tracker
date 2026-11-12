@@ -5,6 +5,7 @@ struct SpendingView: View {
     let categoriesByName: [String: ExpenseCategory]
     @Binding var period: Period
     let addExpense: () -> Void
+    let editExpense: (Expense) -> Void
 
     var body: some View {
         let periodExpenses = expenses.within(from: period.from, to: period.to)
@@ -33,7 +34,9 @@ struct SpendingView: View {
 
                     Section("By category") {
                         ForEach(totals) { row in
-                            CategoryRow(row: row, category: categoriesByName[row.categoryName], total: total)
+                            NavigationLink(value: row.categoryName) {
+                                CategoryRow(row: row, category: categoriesByName[row.categoryName], total: total)
+                            }
                         }
                     }
                     .warmRows()
@@ -51,6 +54,15 @@ struct SpendingView: View {
             }
             .navigationTitle("Spending")
             .navigationBarTitleDisplayMode(.inline)
+            .navigationDestination(for: String.self) { categoryName in
+                CategoryHistoryView(
+                    categoryName: categoryName,
+                    category: categoriesByName[categoryName],
+                    expenses: expenses,
+                    period: $period,
+                    editExpense: editExpense
+                )
+            }
             .safeAreaInset(edge: .top, spacing: 0) {
                 PeriodBar(period: $period)
             }

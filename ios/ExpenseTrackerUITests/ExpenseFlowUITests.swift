@@ -30,6 +30,24 @@ final class ExpenseFlowUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["across 0 categories"].exists)
     }
 
+    func testTappingACategoryShowsItsExpenses() {
+        addExpense(amount: "12.50")
+        XCTAssertTrue(app.staticTexts[euros("12.5")].firstMatch.waitForExistence(timeout: 15))
+        addExpense(amount: "7")
+        XCTAssertTrue(app.staticTexts[euros("19.5")].firstMatch.waitForExistence(timeout: 15))
+
+        app.tabBars.buttons["Spending"].tap()
+        let food = app.cells.containing(.staticText, identifier: "Food").firstMatch
+        XCTAssertTrue(food.waitForExistence(timeout: 15))
+        food.tap()
+
+        XCTAssertTrue(app.navigationBars["Food"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.staticTexts["2 expenses"].exists)
+        XCTAssertTrue(app.staticTexts[euros("19.5")].firstMatch.exists)
+        XCTAssertTrue(app.staticTexts[euros("12.5")].exists)
+        XCTAssertTrue(app.staticTexts[euros("7")].exists)
+    }
+
     func testCommaAndDotAreBothDecimalSeparators() {
         addExpense(amount: "12.50")
         XCTAssertTrue(app.staticTexts[euros("12.5")].firstMatch.waitForExistence(timeout: 15))

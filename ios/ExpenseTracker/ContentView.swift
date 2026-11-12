@@ -59,7 +59,7 @@ struct ContentView: View {
                 .tabItem { Label("Activity", systemImage: "list.bullet") }
                 .tag(AppTab.activity)
 
-            SpendingView(expenses: expenses, categoriesByName: categoriesByName, period: $period, addExpense: addExpense)
+            SpendingView(expenses: expenses, categoriesByName: categoriesByName, period: $period, addExpense: addExpense, editExpense: editExpense)
                 .tabItem { Label("Spending", systemImage: "chart.bar") }
                 .tag(AppTab.spending)
         }
