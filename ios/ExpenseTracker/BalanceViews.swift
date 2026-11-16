@@ -63,7 +63,7 @@ struct BalanceEntryView: View {
                         Text("\(balances[account].euros) available")
                     }
                 }
-                .warmRows()
+                .ledgerRows()
 
                 if isTransfer {
                     Section("Move to") {
@@ -74,7 +74,7 @@ struct BalanceEntryView: View {
                         }
                         .pickerStyle(.segmented)
                     }
-                    .warmRows()
+                    .ledgerRows()
                 } else {
                     Section {
                         DatePicker("Date", selection: $date, displayedComponents: .date)
@@ -82,10 +82,10 @@ struct BalanceEntryView: View {
                     } footer: {
                         Text("Turn on for money you already had. It counts towards your balance, but not as income.")
                     }
-                    .warmRows()
+                    .ledgerRows()
                 }
             }
-            .warmPage()
+            .ledgerPage()
             .scrollDismissesKeyboard(.interactively)
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
@@ -141,7 +141,7 @@ struct BalanceHistoryView: View {
             Section {
                 if entries.isEmpty {
                     Text("No money added or moved yet")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Color.inkSecondary)
                 }
                 ForEach(entries) { entry in
                     HStack(spacing: 12) {
@@ -150,7 +150,7 @@ struct BalanceHistoryView: View {
                             Text(title(for: entry))
                             Text(entry.date.formatted(date: .abbreviated, time: .omitted))
                                 .font(.caption)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(Color.inkSecondary)
                         }
                         Spacer()
                         Text(entry.amount.euros)
@@ -164,13 +164,14 @@ struct BalanceHistoryView: View {
             } footer: {
                 Text("Swipe right to edit money you added, or left to delete an entry and undo its effect on your balances.")
             }
-            .warmRows()
+            .ledgerRows()
         }
-        .warmPage()
+        .ledgerPage()
         .navigationTitle("Balance history")
+        .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $entryBeingEdited) { request in
             BalanceEntryView(isTransfer: false, balances: balances, editing: request.model)
-                .warmSheet()
+                .ledgerSheet()
         }
     }
 

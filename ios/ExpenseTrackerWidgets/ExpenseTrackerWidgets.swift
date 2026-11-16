@@ -319,8 +319,9 @@ struct QuickAddWidgetView: View {
             Label("Add expense", systemImage: "plus")
         default:
             VStack(spacing: 8) {
-                HearthMark()
-                    .frame(height: 84)
+                LedgerMark()
+                    .frame(width: 64)
+                    .padding(.bottom, 4)
                 Text("Add expense")
                     .font(.subheadline.weight(.medium))
                     .foregroundStyle(Color.ink)

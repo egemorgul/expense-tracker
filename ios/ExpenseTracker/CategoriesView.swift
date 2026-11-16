@@ -39,7 +39,7 @@ struct CategoriesView: View {
                             Text("That category already exists")
                         }
                     }
-                    .warmRows()
+                    .ledgerRows()
 
                     Section {
                         ForEach(categories) { category in
@@ -50,7 +50,7 @@ struct CategoriesView: View {
                                 Spacer()
                                 Text(usage(count))
                                     .font(.caption)
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(Color.inkSecondary)
                             }
                             // A row that's a button opens on a swipe when it can't be deleted, so the
                             // icon is changed with a swipe right, like editing elsewhere in the app.
@@ -73,9 +73,9 @@ struct CategoriesView: View {
                     } footer: {
                         Text("Swipe right on a category to change its icon, or left to delete it. Categories with expenses can't be deleted, and at least one has to remain.")
                     }
-                    .warmRows()
+                    .ledgerRows()
                 }
-                .warmPage()
+                .ledgerPage()
                 // A new category goes to the end of the list, which can be off-screen.
                 .onChange(of: categories.count) { oldCount, newCount in
                     guard newCount > oldCount, let last = categories.last else { return }
@@ -86,7 +86,7 @@ struct CategoriesView: View {
             .navigationBarTitleDisplayMode(.inline)
             .sheet(item: $categoryBeingEdited) { request in
                 CategoryIconSheet(category: request.model)
-                    .warmSheet()
+                    .ledgerSheet()
                     .presentationDetents([.medium])
             }
             .toolbar {
@@ -128,15 +128,15 @@ struct CategoryIconGrid: View {
                 } label: {
                     Image(systemName: symbol)
                         .font(.system(size: 18, weight: .medium))
-                        .foregroundStyle(isSelected ? color : .secondary)
+                        .foregroundStyle(isSelected ? color : Color.inkSecondary)
                         .frame(maxWidth: .infinity, minHeight: 44)
                         .background(
-                            isSelected ? color.opacity(0.14) : Color.paper,
+                            isSelected ? color.opacity(0.12) : Color.ink.opacity(0.04),
                             in: RoundedRectangle(cornerRadius: 10, style: .continuous)
                         )
                         .overlay {
                             RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .strokeBorder(isSelected ? color : .clear, lineWidth: 1.5)
+                                .strokeBorder(isSelected ? color : Color.hairline, lineWidth: isSelected ? 2 : 1)
                         }
                 }
                 .buttonStyle(PressableButtonStyle())
@@ -160,9 +160,9 @@ private struct CategoryIconSheet: View {
                         .accessibilityElement(children: .contain)
                         .accessibilityIdentifier("Icons for \(category.name)")
                 }
-                .warmRows()
+                .ledgerRows()
             }
-            .warmPage()
+            .ledgerPage()
             .navigationTitle(category.name)
             .navigationBarTitleDisplayMode(.inline)
             .onAppear {

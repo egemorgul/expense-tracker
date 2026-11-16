@@ -58,7 +58,7 @@ struct ExpenseFormView: View {
                     }
                     .padding(.vertical, 4)
                 }
-                .warmRows()
+                .ledgerRows()
 
                 Section {
                     Picker("Pay from", selection: $account) {
@@ -77,16 +77,16 @@ struct ExpenseFormView: View {
                         Text("\(available.euros) available")
                     }
                 }
-                .warmRows()
+                .ledgerRows()
 
                 Section {
                     TextField("Note (optional)", text: $note)
 
                     DatePicker("Date", selection: $date, displayedComponents: .date)
                 }
-                .warmRows()
+                .ledgerRows()
             }
-            .warmPage()
+            .ledgerPage()
             .scrollDismissesKeyboard(.interactively)
             .navigationTitle(expense == nil ? "Add expense" : "Edit expense")
             .navigationBarTitleDisplayMode(.inline)
@@ -137,19 +137,19 @@ private struct CategoryChip: View {
                     .foregroundStyle(category.color)
                     .accessibilityHidden(true)
                 Text(category.name)
-                    .font(.caption2.weight(isSelected ? .medium : .regular))
+                    .font(.caption2.weight(isSelected ? .semibold : .regular))
                     .foregroundStyle(.primary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
             }
             .frame(maxWidth: .infinity, minHeight: 64)
             .background(
-                isSelected ? category.color.opacity(0.14) : Color.paper,
+                isSelected ? category.color.opacity(0.12) : Color.ink.opacity(0.04),
                 in: RoundedRectangle(cornerRadius: 12, style: .continuous)
             )
             .overlay {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .strokeBorder(isSelected ? category.color : .clear, lineWidth: 1.5)
+                    .strokeBorder(isSelected ? category.color : Color.hairline, lineWidth: isSelected ? 2 : 1)
             }
         }
         .buttonStyle(PressableButtonStyle())

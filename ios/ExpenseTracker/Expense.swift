@@ -8,18 +8,18 @@ enum CategoryColor: String, CaseIterable {
 
     var color: Color {
         switch self {
-        case .orange: Color(hex: 0xD9772B)
-        case .blue: Color(hex: 0x3F7E8C)
-        case .pink: Color(hex: 0xC8607A)
-        case .green: Color(hex: 0x5E8C4A)
-        case .purple: Color(hex: 0x8A5A83)
-        case .red: Color(hex: 0xB8432F)
-        case .gray: Color(hex: 0x8C7B6B)
-        case .teal: Color(hex: 0x2F8F83)
-        case .yellow: Color(hex: 0xD9A521)
-        case .indigo: Color(hex: 0x5A5F9A)
-        case .brown: Color(hex: 0x8A5A3A)
-        case .mint: Color(hex: 0x79A88E)
+        case .orange: Color(hex: 0xE07A1F)
+        case .blue: Color(hex: 0x2F6FDB)
+        case .pink: Color(hex: 0xD6457C)
+        case .green: Color(hex: 0x2E9A57)
+        case .purple: Color(hex: 0x7D4FD8)
+        case .red: Color(hex: 0xD2402F)
+        case .gray: Color(hex: 0x84847E)
+        case .teal: Color(hex: 0x15958A)
+        case .yellow: Color(hex: 0xC99A06)
+        case .indigo: Color(hex: 0x4C55D1)
+        case .brown: Color(hex: 0x956640)
+        case .mint: Color(hex: 0x36AE92)
         }
     }
 }

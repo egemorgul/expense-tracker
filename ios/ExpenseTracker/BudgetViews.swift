@@ -1,7 +1,7 @@
 import SwiftData
 import SwiftUI
 
-/// The budget on the Overview tab: what's left to spend today, and how the period is going.
+/// The budget on the Home tab: what's left to spend today, and how the period is going.
 struct BudgetCard: View {
     let status: BudgetStatus
     let edit: () -> Void
@@ -10,13 +10,11 @@ struct BudgetCard: View {
         Button(action: edit) {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
-                    Text(heading)
-                        .font(.subheadline.weight(.medium))
-                        .foregroundStyle(.secondary)
+                    Caption(heading)
                     Spacer()
                     Image(systemName: "chevron.right")
                         .font(.caption.bold())
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(Color.inkSecondary)
                         .accessibilityHidden(true)
                 }
                 switch status {
@@ -30,7 +28,7 @@ struct BudgetCard: View {
                         .font(.title3.weight(.semibold))
                     Text("Tap to plan your next budget")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Color.inkSecondary)
                 }
             }
             .padding(.vertical, 4)
@@ -63,7 +61,7 @@ private struct ActiveBudget: View {
             // Before anything is spent the figure above is the whole daily budget, so this doesn't repeat it.
             Text(day.spentToday > 0 ? "\(day.spentToday.euros) spent of today's \(day.dailyBudget.euros)" : "Nothing spent yet today")
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.inkSecondary)
 
             ProgressView(value: day.spentFraction)
                 .tint(day.left < 0 ? Color.negative : Color.brand)
@@ -71,10 +69,10 @@ private struct ActiveBudget: View {
 
             HStack {
                 Text(day.left < 0 ? "\((-day.left).euros) over \(day.amount.euros)" : "\(day.left.euros) of \(day.amount.euros) left")
-                    .foregroundStyle(day.left < 0 ? Color.negative : .secondary)
+                    .foregroundStyle(day.left < 0 ? Color.negative : Color.inkSecondary)
                 Spacer()
                 Text(daysLeft)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.inkSecondary)
             }
             .font(.caption)
             .lineLimit(1)
@@ -147,7 +145,7 @@ struct BudgetFormView: View {
                 } footer: {
                     Text(explanation)
                 }
-                .warmRows()
+                .ledgerRows()
 
                 if budget != nil {
                     Section {
@@ -155,10 +153,10 @@ struct BudgetFormView: View {
                             isConfirmingRemoval = true
                         }
                     }
-                    .warmRows()
+                    .ledgerRows()
                 }
             }
-            .warmPage()
+            .ledgerPage()
             .scrollDismissesKeyboard(.interactively)
             .navigationTitle(budget == nil ? "Set a budget" : "Edit budget")
             .navigationBarTitleDisplayMode(.inline)

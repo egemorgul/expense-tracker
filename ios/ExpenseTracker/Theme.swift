@@ -22,16 +22,15 @@ struct EditRequest<Model>: Identifiable {
     }
 }
 
-enum WarmAppearance {
+enum LedgerAppearance {
     /// Bars can only be fully restyled through UIKit, so this runs once when the app starts.
     static func apply() {
         let navigation = UINavigationBarAppearance()
         navigation.configureWithOpaqueBackground()
         navigation.backgroundColor = .paper
         navigation.shadowColor = .clear
-        // Titles use the system sans. The serif is kept for money, see `Font.money`.
-        navigation.titleTextAttributes = [.foregroundColor: UIColor.ink, .font: semibold(style: .headline)]
-        navigation.largeTitleTextAttributes = [.foregroundColor: UIColor.ink, .font: semibold(style: .largeTitle)]
+        navigation.titleTextAttributes = [.foregroundColor: UIColor.ink, .font: font(.headline, weight: .semibold)]
+        navigation.largeTitleTextAttributes = [.foregroundColor: UIColor.ink, .font: font(.largeTitle, weight: .bold)]
         UINavigationBar.appearance().standardAppearance = navigation
         UINavigationBar.appearance().scrollEdgeAppearance = navigation
         UINavigationBar.appearance().compactAppearance = navigation
@@ -39,14 +38,14 @@ enum WarmAppearance {
         let tabs = UITabBarAppearance()
         tabs.configureWithOpaqueBackground()
         tabs.backgroundColor = .paper
-        tabs.shadowColor = UIColor.ink.withAlphaComponent(0.08)
+        tabs.shadowColor = UIColor(light: 0xE4E3DD, dark: 0x2C2C29)
         UITabBar.appearance().standardAppearance = tabs
         UITabBar.appearance().scrollEdgeAppearance = tabs
     }
 
-    private static func semibold(style: UIFont.TextStyle) -> UIFont {
+    private static func font(_ style: UIFont.TextStyle, weight: UIFont.Weight) -> UIFont {
         let size = UIFont.preferredFont(forTextStyle: style).pointSize
-        return UIFontMetrics(forTextStyle: style).scaledFont(for: .systemFont(ofSize: size, weight: .semibold))
+        return UIFontMetrics(forTextStyle: style).scaledFont(for: .systemFont(ofSize: size, weight: weight))
     }
 }
 
@@ -60,17 +59,17 @@ struct PressableButtonStyle: ButtonStyle {
 }
 
 extension View {
-    /// Sits above the tab bar, within thumb reach, and the list scrolls clear of it.
+    /// The screen's one primary action. Sits above the tab bar, within thumb reach, and the list
+    /// scrolls clear of it.
     func addExpenseButton(action: @escaping () -> Void) -> some View {
         safeAreaInset(edge: .bottom) {
             Button(action: action) {
                 Label("Add expense", systemImage: "plus")
                     .font(.headline)
-                    .foregroundStyle(Color.onBrand)
+                    .foregroundStyle(Color.paper)
                     .padding(.horizontal, 20)
                     .frame(minHeight: 50)
-                    .background(Color.brand, in: Capsule())
-                    .shadow(color: .black.opacity(0.14), radius: 8, y: 4)
+                    .background(Color.ink, in: Capsule())
             }
             .buttonStyle(PressableButtonStyle())
             .frame(maxWidth: .infinity, alignment: .trailing)
@@ -79,20 +78,36 @@ extension View {
         }
     }
 
-    /// The warm page behind a list or form. Pair it with `warmRows()` on each section.
-    func warmPage() -> some View {
+    /// The paper behind a list or form. Pair it with `ledgerRows()` on each section.
+    func ledgerPage() -> some View {
         scrollContentBackground(.hidden)
             .background(Color.paper)
     }
 
-    func warmRows() -> some View {
+    func ledgerRows() -> some View {
         listRowBackground(Color.card)
     }
 
     /// Sheets don't inherit these from the screen that opens them.
-    func warmSheet() -> some View {
+    func ledgerSheet() -> some View {
         tint(.brand)
             .foregroundStyle(Color.ink)
+    }
+
+    /// A card that sits straight on the paper, outside a list section. Its corners match the list's
+    /// own sections, which iOS 26 rounds much more than earlier versions.
+    func ledgerCard(padding: CGFloat = 16) -> some View {
+        let radius: CGFloat = if #available(iOS 26, *) { 26 } else { 12 }
+        return self.padding(padding)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.card, in: RoundedRectangle(cornerRadius: radius, style: .continuous))
+    }
+
+    /// Clears a row's list styling, for cards laid out by hand inside a list.
+    func bareRow() -> some View {
+        listRowInsets(EdgeInsets())
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
     }
 
     /// Swipe right to edit a list row and left to delete it. Delete is declared here rather than with
@@ -110,6 +125,41 @@ extension View {
     }
 }
 
+/// The small label above a group of figures, like "Main balance".
+struct Caption: View {
+    let text: String
+
+    init(_ text: String) {
+        self.text = text
+    }
+
+    var body: some View {
+        Text(text)
+            .font(.subheadline)
+            .foregroundStyle(Color.inkSecondary)
+    }
+}
+
+/// A day's heading in a list, with that day's total on the right.
+struct DayHeader: View {
+    let date: Date
+    let total: String
+    var totalColor = Color.inkSecondary
+
+    var body: some View {
+        HStack {
+            Text(date.dayTitle)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Color.ink)
+            Spacer()
+            Text(total)
+                .font(.money(.subheadline))
+                .foregroundStyle(totalColor)
+        }
+        .textCase(nil)
+    }
+}
+
 /// A category's line icon in its color, which matches its part of the spending charts.
 struct CategoryBadge: View {
     let category: ExpenseCategory?
@@ -120,7 +170,7 @@ struct CategoryBadge: View {
             .font(.system(size: 16, weight: .medium))
             .foregroundStyle(color)
             .frame(width: 36, height: 36)
-            .background(color.opacity(0.14), in: Circle())
+            .background(color.opacity(0.12), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
             .accessibilityHidden(true)
     }
 }
@@ -128,13 +178,14 @@ struct CategoryBadge: View {
 /// A neutral icon in the same place as a category badge, for rows that aren't expenses.
 struct SymbolBadge: View {
     let systemName: String
+    var color = Color.inkSecondary
 
     var body: some View {
         Image(systemName: systemName)
             .font(.system(size: 16, weight: .medium))
-            .foregroundStyle(.secondary)
+            .foregroundStyle(color)
             .frame(width: 36, height: 36)
-            .background(Color.ink.opacity(0.06), in: Circle())
+            .background(Color.ink.opacity(0.06), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
             .accessibilityHidden(true)
     }
 }
@@ -169,7 +220,7 @@ struct ExpenseRow: View {
                 if !meta.isEmpty {
                     Text(meta)
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Color.inkSecondary)
                         .lineLimit(1)
                 }
             }
@@ -194,7 +245,7 @@ struct CategoryShareBar: View {
         .chartYAxis(.hidden)
         .chartLegend(.hidden)
         .clipShape(Capsule())
-        .frame(height: 10)
+        .frame(height: 8)
         .accessibilityHidden(true)
     }
 }
@@ -203,6 +254,7 @@ struct CategoryShareBar: View {
 struct AmountField: View {
     @Binding var text: String
     @FocusState private var isFocused: Bool
+    @ScaledMetric(relativeTo: .largeTitle) private var size: CGFloat = 48
 
     /// Laid out like every other amount in the app, which follows the region, like "0,00 €".
     private static let sample = Decimal(0).euros
@@ -211,7 +263,7 @@ struct AmountField: View {
 
     private var symbol: some View {
         Text("€")
-            .foregroundStyle(.secondary)
+            .foregroundStyle(Color.inkSecondary)
             .accessibilityHidden(true)
     }
 
@@ -233,7 +285,7 @@ struct AmountField: View {
                     .accessibilityLabel("Amount (€)")
                 if !Self.symbolComesFirst { symbol }
             }
-            .font(.money(.largeTitle, prominent: true))
+            .font(.system(size: size, weight: .semibold).monospacedDigit())
 
             if isInvalid {
                 Label("Use at most two decimals, like 12.50", systemImage: "exclamationmark.circle")
@@ -242,7 +294,7 @@ struct AmountField: View {
             }
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 8)
+        .padding(.vertical, 12)
         .listRowBackground(Color.clear)
         .onAppear { isFocused = true }
     }

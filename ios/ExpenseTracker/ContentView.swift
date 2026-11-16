@@ -2,7 +2,7 @@ import SwiftData
 import SwiftUI
 
 private enum AppTab {
-    case overview, transactions, activity, spending
+    case home, activity, insights
 }
 
 struct ContentView: View {
@@ -13,10 +13,11 @@ struct ContentView: View {
     @Environment(\.scenePhase) private var scenePhase
     /// Moves on when the day changes, so the budget gets each new day's figure.
     @State private var now = Date.now
-    @State private var tab = AppTab.overview
+    @State private var tab = AppTab.home
     @State private var isAddingExpense = false
     @State private var expenseBeingEdited: EditRequest<Expense>?
     @State private var incomeBeingEdited: EditRequest<BalanceEntry>?
+    /// Shared by Activity and Insights, so both look at the same days.
     @State private var period = Period.month(containing: .now)
 
     var body: some View {
@@ -28,7 +29,7 @@ struct ContentView: View {
         let budgetSnapshot = BudgetSnapshot(plan: budget?.plan, expenses: expenses, at: now)
 
         TabView(selection: $tab) {
-            OverviewView(
+            HomeView(
                 expenses: expenses,
                 categoriesByName: categoriesByName,
                 balances: balances,
@@ -37,13 +38,13 @@ struct ContentView: View {
                 budgetStatus: budgetSnapshot.status(at: now),
                 addExpense: addExpense,
                 editExpense: editExpense,
-                showSpending: { tab = .spending },
+                showInsights: { tab = .insights },
                 showActivity: { tab = .activity }
             )
-            .tabItem { Label("Overview", systemImage: "house") }
-            .tag(AppTab.overview)
+            .tabItem { Label("Home", systemImage: "house") }
+            .tag(AppTab.home)
 
-            TransactionsView(
+            ActivityView(
                 entries: balanceEntries,
                 expenses: expenses,
                 categoriesByName: categoriesByName,
@@ -52,30 +53,26 @@ struct ContentView: View {
                 editExpense: editExpense,
                 editIncome: { incomeBeingEdited = EditRequest($0) }
             )
-            .tabItem { Label("Transactions", systemImage: "arrow.up.arrow.down") }
-            .tag(AppTab.transactions)
+            .tabItem { Label("Activity", systemImage: "list.bullet") }
+            .tag(AppTab.activity)
 
-            ActivityView(expenses: expenses, categoriesByName: categoriesByName, period: $period, addExpense: addExpense, editExpense: editExpense)
-                .tabItem { Label("Activity", systemImage: "list.bullet") }
-                .tag(AppTab.activity)
-
-            SpendingView(expenses: expenses, categoriesByName: categoriesByName, period: $period, addExpense: addExpense, editExpense: editExpense)
-                .tabItem { Label("Spending", systemImage: "chart.bar") }
-                .tag(AppTab.spending)
+            InsightsView(expenses: expenses, categoriesByName: categoriesByName, period: $period, addExpense: addExpense, editExpense: editExpense)
+                .tabItem { Label("Insights", systemImage: "chart.pie") }
+                .tag(AppTab.insights)
         }
         .tint(.brand)
         .foregroundStyle(Color.ink)
         .sheet(isPresented: $isAddingExpense) {
             ExpenseFormView(balances: balances)
-                .warmSheet()
+                .ledgerSheet()
         }
         .sheet(item: $expenseBeingEdited) { request in
             ExpenseFormView(balances: balances, editing: request.model)
-                .warmSheet()
+                .ledgerSheet()
         }
         .sheet(item: $incomeBeingEdited) { request in
             BalanceEntryView(isTransfer: false, balances: balances, editing: request.model)
-                .warmSheet()
+                .ledgerSheet()
         }
         .task(id: WidgetSnapshot(balances)) {
             WidgetSnapshot(balances).publish()
@@ -107,11 +104,10 @@ private extension UIApplication {
     }
 }
 
-private struct OverviewView: View {
+private struct HomeView: View {
     private static let recentCount = 5
 
     @Environment(\.modelContext) private var modelContext
-    @State private var isManagingCategories = false
     @State private var isAddingMoney = false
     @State private var isMovingMoney = false
     @State private var isShowingHistory = false
@@ -126,7 +122,7 @@ private struct OverviewView: View {
     let budgetStatus: BudgetStatus?
     let addExpense: () -> Void
     let editExpense: (Expense) -> Void
-    let showSpending: () -> Void
+    let showInsights: () -> Void
     let showActivity: () -> Void
 
     var body: some View {
@@ -138,20 +134,25 @@ private struct OverviewView: View {
             List {
                 Section {
                     Text(today.formatted(.dateTime.weekday(.wide).day().month(.wide)))
-                        .font(.largeTitle.weight(.semibold))
-                        .listRowInsets(EdgeInsets())
-                        .listRowBackground(Color.clear)
-                        .listRowSeparator(.hidden)
+                        .font(.largeTitle.bold())
+                        .bareRow()
                 }
 
                 Section {
                     MainBalanceCard(
                         balance: balances[.main],
+                        showHistory: { isShowingHistory = true },
                         addMoney: { isAddingMoney = true },
                         moveMoney: { isMovingMoney = true }
                     )
-                    .listRowInsets(EdgeInsets())
-                    .listRowBackground(Color.clear)
+                    .bareRow()
+
+                    HStack(spacing: 12) {
+                        AccountTile(account: .savings, caption: "Set aside", value: balances[.savings])
+                        AccountTile(account: .cash, caption: "On hand", value: balances[.cash])
+                    }
+                    .bareRow()
+                    .padding(.top, 12)
                 }
 
                 Section {
@@ -162,35 +163,27 @@ private struct OverviewView: View {
                             isEditingBudget = true
                         } label: {
                             Label("Set a budget", systemImage: "calendar.badge.plus")
-                                .font(.subheadline.weight(.medium))
+                                .font(.body.weight(.medium))
+                                .foregroundStyle(Color.brand)
                         }
                     }
                 }
-                .warmRows()
-
-                Section {
-                    HStack(spacing: 12) {
-                        AccountTile(account: .savings, systemImage: "building.columns", caption: "Set aside", value: balances[.savings])
-                        AccountTile(account: .cash, systemImage: "banknote", caption: "On hand", value: balances[.cash])
-                    }
-                    .listRowInsets(EdgeInsets())
-                    .listRowBackground(Color.clear)
-                }
+                .ledgerRows()
 
                 Section {
                     MonthSummary(
                         total: monthExpenses.total,
                         totals: monthExpenses.categoryTotals,
                         categoriesByName: categoriesByName,
-                        showSpending: showSpending
+                        showInsights: showInsights
                     )
                 }
-                .warmRows()
+                .ledgerRows()
 
                 Section {
                     if expenses.isEmpty {
                         Text("No expenses yet. Tap + to add one.")
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Color.inkSecondary)
                     }
                     ForEach(recent) { expense in
                         ExpenseRow(expense: expense, category: categoriesByName[expense.categoryName])
@@ -202,102 +195,92 @@ private struct OverviewView: View {
                 } header: {
                     HStack {
                         Text("Recent")
-                            .font(.subheadline.weight(.medium))
-                            .textCase(nil)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(Color.ink)
                         Spacer()
                         if expenses.count > Self.recentCount {
                             Button("See all", action: showActivity)
                                 .font(.subheadline.weight(.medium))
-                                .textCase(nil)
                         }
                     }
+                    .textCase(nil)
                 }
-                .warmRows()
+                .ledgerRows()
             }
-            .warmPage()
-            .listSectionSpacing(.compact)
+            .ledgerPage()
+            .listSectionSpacing(16)
+            // An empty, solid bar rather than a hidden one, so the page scrolls under the paper and not
+            // under the status bar. A large title would hold the date, but iOS 26 doesn't draw it here.
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(Color.paper, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
             .navigationDestination(isPresented: $isShowingHistory) {
                 BalanceHistoryView(balances: balances)
             }
-            .toolbar {
-                ToolbarItemGroup(placement: .topBarTrailing) {
-                    Button("Categories", systemImage: "tag") {
-                        isManagingCategories = true
-                    }
-                    Button("Balance history", systemImage: "clock.arrow.circlepath") {
-                        isShowingHistory = true
-                    }
-                }
-            }
             .addExpenseButton(action: addExpense)
-            .sheet(isPresented: $isManagingCategories) {
-                CategoriesView()
-                    .warmSheet()
-            }
             .sheet(isPresented: $isAddingMoney) {
                 BalanceEntryView(isTransfer: false, balances: balances)
-                    .warmSheet()
+                    .ledgerSheet()
             }
             .sheet(isPresented: $isMovingMoney) {
                 BalanceEntryView(isTransfer: true, balances: balances)
-                    .warmSheet()
+                    .ledgerSheet()
             }
             .sheet(isPresented: $isEditingBudget) {
                 BudgetFormView(editing: budget)
-                    .warmSheet()
+                    .ledgerSheet()
             }
         }
     }
-
 }
 
 private struct MainBalanceCard: View {
     let balance: Decimal
+    let showHistory: () -> Void
     let addMoney: () -> Void
     let moveMoney: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .bottom, spacing: 12) {
-                VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
                     if balance < 0 {
                         Label("Main balance overdrawn", systemImage: "exclamationmark.triangle.fill")
                             .font(.subheadline.weight(.medium))
-                            .foregroundStyle(Color.heroNegative)
+                            .foregroundStyle(Color.negative)
                     } else {
-                        Text("Main balance")
-                            .font(.subheadline.weight(.medium))
-                            .opacity(0.85)
+                        Caption("Main balance")
                     }
-                    Text(balance.euros)
-                        .font(.money(.largeTitle, prominent: true))
-                        .foregroundStyle(balance < 0 ? Color.heroNegative : Color.heroText)
-                        .minimumScaleFactor(0.5)
-                        .lineLimit(1)
-                        .contentTransition(.numericText())
-                        .animation(.default, value: balance)
+                    Spacer()
+                    Button(action: showHistory) {
+                        HStack(spacing: 2) {
+                            Text("History")
+                            Image(systemName: "chevron.right")
+                                .font(.caption.weight(.semibold))
+                        }
+                        .font(.subheadline.weight(.medium))
+                        .frame(minHeight: 44)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(PressableButtonStyle())
+                    .foregroundStyle(Color.brand)
+                    .accessibilityLabel("Balance history")
                 }
-                Spacer(minLength: 0)
-                HearthMark()
-                    .frame(height: 72)
+                .frame(height: 24)
+                Text(balance.euros)
+                    .font(.system(.largeTitle, weight: .bold).monospacedDigit())
+                    .foregroundStyle(balance < 0 ? Color.negative : Color.ink)
+                    .minimumScaleFactor(0.5)
+                    .lineLimit(1)
+                    .contentTransition(.numericText())
+                    .animation(.default, value: balance)
             }
             HStack(spacing: 10) {
                 CardButton(title: "Add money", systemImage: "plus", action: addMoney)
                 CardButton(title: "Move money", systemImage: "arrow.left.arrow.right", action: moveMoney)
             }
         }
-        .foregroundStyle(Color.heroText)
-        .padding(20)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background {
-            LinearGradient(colors: [.heroTop, .heroBottom], startPoint: .topLeading, endPoint: .bottomTrailing)
-        }
-        .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 26, style: .continuous)
-                .strokeBorder(Color.coinLight.opacity(0.18))
-        }
+        .ledgerCard(padding: 20)
     }
 }
 
@@ -308,12 +291,18 @@ private struct CardButton: View {
 
     var body: some View {
         Button(action: action) {
-            Label(title, systemImage: systemImage)
-                .font(.subheadline.weight(.medium))
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
-                .frame(maxWidth: .infinity, minHeight: 44)
-                .background(Color.heroText.opacity(0.16), in: Capsule())
+            HStack(spacing: 6) {
+                Image(systemName: systemImage)
+                    .accessibilityHidden(true)
+                Text(title)
+            }
+            .font(.subheadline.weight(.medium))
+            .foregroundStyle(Color.ink)
+            .lineLimit(1)
+            .minimumScaleFactor(0.8)
+            .frame(maxWidth: .infinity, minHeight: 44)
+            .background(Color.ink.opacity(0.05), in: Capsule())
+            .overlay { Capsule().strokeBorder(Color.hairline) }
         }
         .buttonStyle(PressableButtonStyle())
     }
@@ -321,36 +310,22 @@ private struct CardButton: View {
 
 private struct AccountTile: View {
     let account: BalanceAccount
-    let systemImage: String
     let caption: String
     let value: Decimal
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
-                Image(systemName: systemImage)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .accessibilityHidden(true)
-                Text(account.title)
-                    .font(.subheadline.weight(.medium))
-            }
+        VStack(alignment: .leading, spacing: 4) {
+            Caption(account.title)
             Text(value.euros)
-                .font(.money(.title2, prominent: true))
+                .font(.money(.title3, prominent: true))
                 .foregroundStyle(value < 0 ? Color.negative : Color.ink)
                 .minimumScaleFactor(0.6)
                 .lineLimit(1)
             Text(value < 0 ? "Overdrawn" : caption)
                 .font(.caption)
-                .foregroundStyle(value < 0 ? Color.negative : .secondary)
+                .foregroundStyle(value < 0 ? Color.negative : Color.inkSecondary)
         }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.card, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .strokeBorder(Color.hairline)
-        }
+        .ledgerCard()
     }
 }
 
@@ -358,24 +333,22 @@ private struct MonthSummary: View {
     let total: Decimal
     let totals: [CategoryTotal]
     let categoriesByName: [String: ExpenseCategory]
-    let showSpending: () -> Void
+    let showInsights: () -> Void
 
     var body: some View {
-        Button(action: showSpending) {
+        Button(action: showInsights) {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
-                    Text("Spent this month")
-                        .font(.subheadline.weight(.medium))
-                        .foregroundStyle(.secondary)
+                    Caption("Spent this month")
                     Spacer()
                     Image(systemName: "chevron.right")
                         .font(.caption.bold())
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(Color.inkSecondary)
                         .accessibilityHidden(true)
                 }
                 Text(total.euros)
                     .font(.money(.title, prominent: true))
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(Color.ink)
                     .minimumScaleFactor(0.6)
                     .lineLimit(1)
                 if !totals.isEmpty {
@@ -383,7 +356,7 @@ private struct MonthSummary: View {
                 }
                 Text("across \(totals.count) \(totals.count == 1 ? "category" : "categories")")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.inkSecondary)
             }
             .padding(.vertical, 4)
             .contentShape(Rectangle())

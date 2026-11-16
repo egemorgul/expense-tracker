@@ -52,10 +52,10 @@ struct WidgetSnapshot: Codable, Equatable {
 }
 
 extension Font {
-    /// Money is always set in the serif with even-width figures, like entries in a ledger. Titles,
-    /// labels and buttons use the system sans, so amounts stand apart from everything else.
+    /// Money is set in the system sans with even-width figures, so amounts line up like a ledger's
+    /// columns and don't jump around as they change.
     static func money(_ style: Font.TextStyle, prominent: Bool = false) -> Font {
-        .system(style, design: .serif, weight: prominent ? .semibold : .medium).monospacedDigit()
+        .system(style, weight: prominent ? .semibold : .regular).monospacedDigit()
     }
 }
 
@@ -65,35 +65,23 @@ extension Decimal {
     }
 }
 
+/// The Ledger palette: paper and ink, with one green for anything that's yours to act on or that
+/// adds money. Category colors are the only other color in the app.
 extension Color {
-    /// The page, like warm paper, and the cards that sit on it. Kept close to neutral, so the
-    /// balance card and the category colors carry the warmth.
     static let paper = Color(uiColor: .paper)
-    static let card = Color(light: 0xFFFDF9, dark: 0x211D1A)
-    /// Text. Warm brown-black rather than pure black.
+    /// Rows and cards that sit on the paper.
+    static let card = Color(light: 0xFFFFFF, dark: 0x1A1A18)
     static let ink = Color(uiColor: .ink)
-    /// Hairlines around cards that sit straight on the page.
-    static let hairline = Color(uiColor: .ink).opacity(0.08)
+    /// Supporting text. Passes 4.5:1 on both paper and cards.
+    static let inkSecondary = Color(light: 0x5F5F5A, dark: 0xA6A69F)
+    static let hairline = Color(light: 0xE4E3DD, dark: 0x2C2C29)
 
-    /// Terracotta from the logo in light mode, and its glowing coin in dark mode.
-    static let brand = Color(light: 0xB4471E, dark: 0xF4A84A)
+    /// The one accent: tabs, links, progress and money coming in.
+    static let brand = Color(light: 0x136F4A, dark: 0x4CC38A)
     /// Text and icons on top of `brand`.
-    static let onBrand = Color(light: 0xFFF8EC, dark: 0x2B120A)
-    static let positive = Color(light: 0x2F6B3C, dark: 0x8CC98F)
-    static let negative = Color(light: 0xA9281F, dark: 0xF28B7D)
-
-    /// The balance card stays dark and glowing in both appearances, so its text is always light.
-    static let heroTop = Color(hex: 0x2B120A)
-    static let heroBottom = Color(hex: 0x6E2614)
-    static let heroNegative = Color(hex: 0xFFB4A0)
-    static let heroText = Color(hex: 0xFFF3E0)
-
-    /// The arches of the logo, from the outside in, and its coin.
-    static let arches = [Color(hex: 0xD8622E), Color(hex: 0xA9411F), Color(hex: 0x6E2614), Color(hex: 0x2F100A)]
-    static let coinLight = Color(hex: 0xFFDC92)
-    static let coinMid = Color(hex: 0xF8B040)
-    static let coinDark = Color(hex: 0xE58C22)
-    static let glow = Color(hex: 0xFF8A2B)
+    static let onBrand = Color(light: 0xFFFFFF, dark: 0x05261A)
+    static let positive = brand
+    static let negative = Color(light: 0xB42318, dark: 0xFF7B6E)
 
     init(hex: UInt32) {
         self.init(uiColor: UIColor(hex: hex))
@@ -105,8 +93,8 @@ extension Color {
 }
 
 extension UIColor {
-    static let paper = UIColor(light: 0xF7F3EC, dark: 0x171412)
-    static let ink = UIColor(light: 0x1F1B16, dark: 0xEFE9DE)
+    static let paper = UIColor(light: 0xF1F0EB, dark: 0x0E0E0D)
+    static let ink = UIColor(light: 0x141414, dark: 0xF2F2EE)
 
     convenience init(light: UInt32, dark: UInt32) {
         self.init { $0.userInterfaceStyle == .dark ? UIColor(hex: dark) : UIColor(hex: light) }
@@ -124,51 +112,27 @@ extension UIColor {
     }
 }
 
-/// An arch with a flat base, whose top is a full semicircle.
-struct ArchShape: Shape {
-    func path(in rect: CGRect) -> Path {
-        let radius = rect.width / 2
-        var path = Path()
-        path.move(to: CGPoint(x: rect.minX, y: rect.maxY))
-        path.addLine(to: CGPoint(x: rect.minX, y: rect.minY + radius))
-        path.addArc(
-            center: CGPoint(x: rect.midX, y: rect.minY + radius),
-            radius: radius,
-            startAngle: .degrees(180),
-            endAngle: .degrees(0),
-            clockwise: false
-        )
-        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
-        path.closeSubpath()
-        return path
-    }
-}
+/// The logo: two entries, the rule under them, and the total in green. Its proportions match
+/// `Branding/ledger-app-icon.svg` without the icon's background.
+struct LedgerMark: View {
+    var entries = Color.ink
+    var total = Color.brand
 
-/// The logo: arches receding like a hearth, one for each account, around a glowing coin.
-/// Its proportions match `Branding/hearth-app-icon.svg`, with the height running to the arch's base.
-struct HearthMark: View {
     var body: some View {
         GeometryReader { proxy in
-            let width = proxy.size.width
-            let unit = width / 744
-            ZStack(alignment: .bottom) {
-                ForEach(Array(Color.arches.enumerated()), id: \.offset) { index, color in
-                    let inset = CGFloat(index) * 76 * unit
-                    ArchShape()
-                        .fill(color)
-                        .frame(width: width - inset * 2, height: proxy.size.height - inset)
-                }
-                RadialGradient(colors: [.glow.opacity(0.72), .glow.opacity(0)], center: .center, startRadius: 0, endRadius: 300 * unit)
-                    .frame(width: 440 * unit, height: 600 * unit)
-                    .clipShape(ArchShape())
-                Circle()
-                    .fill(RadialGradient(colors: [.coinLight, .coinMid, .coinDark], center: .init(x: 0.36, y: 0.3), startRadius: 0, endRadius: 190 * unit))
-                    .frame(width: 244 * unit, height: 244 * unit)
-                    .offset(y: -160 * unit)
+            let unit = proxy.size.width / 100
+            VStack(alignment: .leading, spacing: 0) {
+                Capsule().fill(entries).frame(width: 72 * unit, height: 12 * unit)
+                Spacer(minLength: 0)
+                Capsule().fill(entries).frame(width: 50 * unit, height: 12 * unit)
+                Spacer(minLength: 0)
+                Capsule().fill(entries.opacity(0.4)).frame(width: 100 * unit, height: 4 * unit)
+                Spacer(minLength: 0)
+                Capsule().fill(total).frame(width: 60 * unit, height: 12 * unit)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
             }
-            .frame(width: width, height: proxy.size.height, alignment: .bottom)
         }
-        .aspectRatio(744 / 884, contentMode: .fit)
+        .aspectRatio(100 / 80, contentMode: .fit)
         .accessibilityHidden(true)
     }
 }

@@ -16,11 +16,11 @@ final class ExpenseFlowUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts[euros("12.5")].firstMatch.waitForExistence(timeout: 15))
         XCTAssertTrue(app.staticTexts["across 1 category"].exists)
 
-        app.tabBars.buttons["Spending"].tap()
+        app.tabBars.buttons["Insights"].tap()
         XCTAssertTrue(app.staticTexts["100%"].waitForExistence(timeout: 15))
         app.tabBars.buttons["Activity"].tap()
         XCTAssertTrue(app.staticTexts["Today"].waitForExistence(timeout: 15))
-        app.tabBars.buttons["Overview"].tap()
+        app.tabBars.buttons["Home"].tap()
 
         let expense = app.cells.containing(.staticText, identifier: "Food").firstMatch
         XCTAssertTrue(scrollClearOfAddButton(expense))
@@ -36,7 +36,7 @@ final class ExpenseFlowUITests: XCTestCase {
         addExpense(amount: "7")
         XCTAssertTrue(app.staticTexts[euros("19.5")].firstMatch.waitForExistence(timeout: 15))
 
-        app.tabBars.buttons["Spending"].tap()
+        app.tabBars.buttons["Insights"].tap()
         let food = app.cells.containing(.staticText, identifier: "Food").firstMatch
         XCTAssertTrue(food.waitForExistence(timeout: 15))
         food.tap()
@@ -71,7 +71,7 @@ final class ExpenseFlowUITests: XCTestCase {
     }
 
     func testNewCategoryCanBeUsedAndIsOnlyDeletableWhenUnused() {
-        app.buttons["Categories"].tap()
+        openCategories()
         type("Pets", into: app.textFields["Name"])
         app.buttons["Add category"].tap()
         XCTAssertTrue(categoryRow("Pets", usage: "Not used").waitForExistence(timeout: 15))
@@ -81,10 +81,11 @@ final class ExpenseFlowUITests: XCTestCase {
         type("5", into: app.textFields["Amount (€)"])
         app.buttons["Pets"].tap()
         app.buttons["Save"].tap()
+        app.tabBars.buttons["Home"].tap()
         let expense = app.cells.containing(.staticText, identifier: "Pets").firstMatch
         XCTAssertTrue(scrollClearOfAddButton(expense))
 
-        app.buttons["Categories"].tap()
+        openCategories()
         let usedPets = categoryRow("Pets", usage: "1 expense")
         XCTAssertTrue(app.buttons["Done"].waitForExistence(timeout: 15))
         XCTAssertTrue(scrollTo(usedPets))
@@ -93,10 +94,11 @@ final class ExpenseFlowUITests: XCTestCase {
         XCTAssertFalse(app.navigationBars["Pets"].exists, "A swipe shouldn't open the icon picker")
         app.buttons["Done"].tap()
 
+        app.tabBars.buttons["Home"].tap()
         tapSwipeAction("Delete", on: expense)
         XCTAssertTrue(app.staticTexts["No expenses yet. Tap + to add one."].waitForExistence(timeout: 15))
 
-        app.buttons["Categories"].tap()
+        openCategories()
         let unusedPets = categoryRow("Pets", usage: "Not used")
         XCTAssertTrue(app.buttons["Done"].waitForExistence(timeout: 15))
         XCTAssertTrue(scrollTo(unusedPets))
@@ -105,7 +107,7 @@ final class ExpenseFlowUITests: XCTestCase {
     }
 
     func testCategoryIconCanBeChangedWithASwipe() {
-        app.buttons["Categories"].tap()
+        openCategories()
         let food = categoryRow("Food", usage: "Not used")
         XCTAssertTrue(food.waitForExistence(timeout: 15))
         tapSwipeAction("Icon", on: food)
@@ -120,7 +122,7 @@ final class ExpenseFlowUITests: XCTestCase {
     }
 
     func testDuplicateCategoryNameIsRejected() {
-        app.buttons["Categories"].tap()
+        openCategories()
         let add = app.buttons["Add category"]
         XCTAssertTrue(add.waitForExistence(timeout: 15))
         XCTAssertFalse(add.isEnabled)
@@ -212,15 +214,15 @@ final class ExpenseFlowUITests: XCTestCase {
         XCTAssertFalse(app.segmentedControls.element(boundBy: 1).buttons["Savings"].exists)
     }
 
-    func testPeriodStepsBetweenMonthsOnActivityAndSpending() {
+    func testPeriodStepsBetweenMonthsOnActivityAndInsights() {
         addExpense(amount: "5")
         app.tabBars.buttons["Activity"].tap()
         XCTAssertTrue(app.staticTexts["Today"].waitForExistence(timeout: 15))
 
         app.buttons["Previous month"].tap()
-        XCTAssertTrue(app.staticTexts["No expenses"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.staticTexts["No transactions"].waitForExistence(timeout: 15))
 
-        app.tabBars.buttons["Spending"].tap()
+        app.tabBars.buttons["Insights"].tap()
         XCTAssertTrue(app.staticTexts["Nothing to show"].waitForExistence(timeout: 15))
 
         app.buttons["Next month"].tap()
@@ -253,7 +255,7 @@ final class ExpenseFlowUITests: XCTestCase {
         XCTAssertTrue(app.cells.containing(.staticText, identifier: "Transport").firstMatch.waitForExistence(timeout: 15))
         XCTAssertFalse(foodRow.exists)
 
-        app.tabBars.buttons["Overview"].tap()
+        app.tabBars.buttons["Home"].tap()
         XCTAssertTrue(app.staticTexts[euros("80")].waitForExistence(timeout: 15))
         XCTAssertTrue(app.staticTexts[euros("45")].exists)
     }
@@ -278,10 +280,10 @@ final class ExpenseFlowUITests: XCTestCase {
         let row = app.cells.containing(.staticText, identifier: "Food").firstMatch
         XCTAssertTrue(row.waitForExistence(timeout: 15))
         tapSwipeAction("Delete", on: row)
-        XCTAssertTrue(app.staticTexts["No expenses"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.staticTexts["No transactions"].waitForExistence(timeout: 15))
     }
 
-    func testTransactionsShowsIncomeAndExpensesButNotTransfers() {
+    func testActivityShowsIncomeAndExpensesButNotTransfers() {
         addMoney("100", to: "Main")
         addExpense(amount: "30")
         app.buttons["Move money"].tap()
@@ -289,7 +291,7 @@ final class ExpenseFlowUITests: XCTestCase {
         app.buttons["Save"].tap()
         XCTAssertTrue(app.buttons["Move money"].waitForExistence(timeout: 15))
 
-        app.tabBars.buttons["Transactions"].tap()
+        app.tabBars.buttons["Activity"].tap()
         XCTAssertTrue(app.staticTexts["Today"].waitForExistence(timeout: 15))
         XCTAssertTrue(app.staticTexts[euros("100")].exists)
         XCTAssertTrue(app.staticTexts[euros("30")].exists)
@@ -299,11 +301,28 @@ final class ExpenseFlowUITests: XCTestCase {
         XCTAssertFalse(app.staticTexts[signedEuros("10")].exists)
     }
 
+    func testActivityFilterShowsOnlySpentOrIncome() {
+        addMoney("100", to: "Main")
+        addExpense(amount: "30")
+        app.tabBars.buttons["Activity"].tap()
+        let expense = app.cells.containing(.staticText, identifier: "Food").firstMatch
+        XCTAssertTrue(incomeRow.waitForExistence(timeout: 15))
+        XCTAssertTrue(expense.exists)
+
+        app.buttons["Spent"].tap()
+        XCTAssertTrue(incomeRow.waitForNonExistence(timeout: 15))
+        XCTAssertTrue(expense.exists)
+
+        app.buttons["Income"].tap()
+        XCTAssertTrue(incomeRow.waitForExistence(timeout: 15))
+        XCTAssertFalse(expense.exists)
+    }
+
     func testStartingBalanceKeepsTheBalanceButIsNotIncome() {
         addMoney("100", to: "Main")
         addExpense(amount: "30")
 
-        app.tabBars.buttons["Transactions"].tap()
+        app.tabBars.buttons["Activity"].tap()
         let income = incomeRow
         XCTAssertTrue(income.waitForExistence(timeout: 15))
         tapSwipeAction("Edit", on: income)
@@ -314,7 +333,7 @@ final class ExpenseFlowUITests: XCTestCase {
         XCTAssertTrue(income.waitForNonExistence(timeout: 15))
         XCTAssertEqual(app.staticTexts.matching(identifier: signedEuros("-30")).count, 3, "The month, the day and the expense should all show -30")
 
-        app.tabBars.buttons["Overview"].tap()
+        app.tabBars.buttons["Home"].tap()
         XCTAssertTrue(app.staticTexts[euros("70")].waitForExistence(timeout: 15))
 
         app.buttons["Balance history"].tap()
@@ -328,7 +347,7 @@ final class ExpenseFlowUITests: XCTestCase {
 
     func testEditingIncomeChangesTheBalance() {
         addMoney("100", to: "Main")
-        app.tabBars.buttons["Transactions"].tap()
+        app.tabBars.buttons["Activity"].tap()
         let income = incomeRow
         XCTAssertTrue(income.waitForExistence(timeout: 15))
         tapSwipeAction("Edit", on: income)
@@ -339,7 +358,7 @@ final class ExpenseFlowUITests: XCTestCase {
         typeAtEnd(XCUIKeyboardKey.delete.rawValue, into: amount)
         app.buttons["Save"].tap()
 
-        app.tabBars.buttons["Overview"].tap()
+        app.tabBars.buttons["Home"].tap()
         XCTAssertTrue(app.staticTexts[euros("10")].waitForExistence(timeout: 15))
     }
 
@@ -456,9 +475,14 @@ final class ExpenseFlowUITests: XCTestCase {
         if confirm.waitForExistence(timeout: 2) { confirm.tap() }
     }
 
-    /// The summary at the top of the Transactions tab also says "Income", and comes first.
     private var incomeRow: XCUIElement {
-        app.cells.containing(.staticText, identifier: "Income").element(boundBy: 1)
+        app.cells.containing(.staticText, identifier: "Income").firstMatch
+    }
+
+    /// Categories are managed from the Insights tab.
+    private func openCategories() {
+        app.tabBars.buttons["Insights"].tap()
+        app.buttons["Categories"].tap()
     }
 
     private func flipStartingBalance(to value: String) {

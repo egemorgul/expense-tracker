@@ -1,6 +1,9 @@
 import SwiftUI
 
-struct SpendingView: View {
+/// Where the money went in the period, by category. Categories are managed from here too.
+struct InsightsView: View {
+    @State private var isManagingCategories = false
+
     let expenses: [Expense]
     let categoriesByName: [String: ExpenseCategory]
     @Binding var period: Period
@@ -18,11 +21,9 @@ struct SpendingView: View {
                     Section {
                         VStack(alignment: .leading, spacing: 12) {
                             VStack(alignment: .leading, spacing: 2) {
-                                Text("Total spent")
-                                    .font(.subheadline)
-                                    .foregroundStyle(.secondary)
+                                Caption("Total spent")
                                 Text(total.euros)
-                                    .font(.money(.largeTitle, prominent: true))
+                                    .font(.system(.largeTitle, weight: .bold).monospacedDigit())
                                     .minimumScaleFactor(0.5)
                                     .lineLimit(1)
                             }
@@ -30,29 +31,34 @@ struct SpendingView: View {
                         }
                         .padding(.vertical, 6)
                     }
-                    .warmRows()
+                    .ledgerRows()
 
-                    Section("By category") {
+                    Section {
                         ForEach(totals) { row in
                             NavigationLink(value: row.categoryName) {
                                 CategoryRow(row: row, category: categoriesByName[row.categoryName], total: total)
                             }
                         }
+                    } header: {
+                        Text("By category")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(Color.ink)
+                            .textCase(nil)
                     }
-                    .warmRows()
+                    .ledgerRows()
                 }
             }
-            .warmPage()
+            .ledgerPage()
             .overlay {
                 if totals.isEmpty {
                     ContentUnavailableView(
                         "Nothing to show",
-                        systemImage: "chart.bar",
+                        systemImage: "chart.pie",
                         description: Text("Add an expense in this period to see where your money goes")
                     )
                 }
             }
-            .navigationTitle("Spending")
+            .navigationTitle("Insights")
             .navigationBarTitleDisplayMode(.inline)
             .navigationDestination(for: String.self) { categoryName in
                 CategoryHistoryView(
@@ -63,10 +69,21 @@ struct SpendingView: View {
                     editExpense: editExpense
                 )
             }
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Categories", systemImage: "tag") {
+                        isManagingCategories = true
+                    }
+                }
+            }
             .safeAreaInset(edge: .top, spacing: 0) {
                 PeriodBar(period: $period)
             }
             .addExpenseButton(action: addExpense)
+            .sheet(isPresented: $isManagingCategories) {
+                CategoriesView()
+                    .ledgerSheet()
+            }
         }
     }
 }
@@ -97,7 +114,7 @@ private struct CategoryRow: View {
                         .accessibilityHidden(true)
                     Text("\(Int((share * 100).rounded()))%")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Color.inkSecondary)
                         .monospacedDigit()
                         .frame(minWidth: 36, alignment: .trailing)
                 }

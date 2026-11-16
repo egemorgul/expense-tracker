@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// The range of days the Activity and Spending tabs show. Both ends are whole days, see `within`.
+/// The range of days the Activity and Insights tabs show. Both ends are whole days, see `within`.
 struct Period: Equatable {
     var from: Date
     var to: Date
@@ -45,16 +45,25 @@ struct PeriodBar: View {
             Button {
                 isPickingRange = true
             } label: {
-                HStack(spacing: 4) {
+                HStack(spacing: 6) {
+                    Image(systemName: "calendar")
+                        .font(.subheadline)
+                        .foregroundStyle(Color.inkSecondary)
+                        .accessibilityHidden(true)
                     Text(period.title)
-                        .font(.headline)
+                        .font(.subheadline.weight(.semibold))
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)
                     Image(systemName: "chevron.down")
                         .font(.caption2.bold())
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Color.inkSecondary)
                 }
+                .padding(.horizontal, 14)
+                .frame(minHeight: 36)
+                .background(Color.card, in: Capsule())
+                .overlay { Capsule().strokeBorder(Color.hairline) }
                 .frame(maxWidth: .infinity, minHeight: 44)
+                .contentShape(Rectangle())
             }
             .buttonStyle(PressableButtonStyle())
             .foregroundStyle(.primary)
@@ -65,7 +74,7 @@ struct PeriodBar: View {
         .background(Color.paper)
         .sheet(isPresented: $isPickingRange) {
             PeriodPicker(period: $period)
-                .warmSheet()
+                .ledgerSheet()
                 .presentationDetents([.medium])
         }
     }
@@ -75,7 +84,8 @@ struct PeriodBar: View {
             period = period.shifted(byMonths: months)
         }
         .labelStyle(.iconOnly)
-        .font(.headline)
+        .font(.subheadline.weight(.semibold))
+        .foregroundStyle(Color.ink)
         .frame(width: 44, height: 44)
         .contentShape(Rectangle())
     }
@@ -92,16 +102,16 @@ private struct PeriodPicker: View {
                     DatePicker("From", selection: $period.from, in: ...period.to, displayedComponents: .date)
                     DatePicker("To", selection: $period.to, in: period.from..., displayedComponents: .date)
                 }
-                .warmRows()
+                .ledgerRows()
                 Section {
                     Button("This month") {
                         period = .month(containing: .now)
                         dismiss()
                     }
                 }
-                .warmRows()
+                .ledgerRows()
             }
-            .warmPage()
+            .ledgerPage()
             .navigationTitle("Date range")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

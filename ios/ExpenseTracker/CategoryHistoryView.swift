@@ -1,7 +1,7 @@
 import SwiftData
 import SwiftUI
 
-/// Every expense in one category over the period chosen on the Spending tab, latest day first.
+/// Every expense in one category over the period chosen on the Insights tab, latest day first.
 struct CategoryHistoryView: View {
     @Environment(\.modelContext) private var modelContext
 
@@ -23,9 +23,7 @@ struct CategoryHistoryView: View {
                     HStack(spacing: 12) {
                         CategoryBadge(category: category)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("Spent on \(categoryName)")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
+                            Caption("Spent on \(categoryName)")
                             Text(categoryExpenses.total.euros)
                                 .font(.money(.title, prominent: true))
                                 .minimumScaleFactor(0.6)
@@ -34,11 +32,11 @@ struct CategoryHistoryView: View {
                         Spacer()
                         Text(count(categoryExpenses.count))
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Color.inkSecondary)
                     }
                     .padding(.vertical, 4)
                 }
-                .warmRows()
+                .ledgerRows()
             }
 
             ForEach(days) { day in
@@ -51,19 +49,12 @@ struct CategoryHistoryView: View {
                             )
                     }
                 } header: {
-                    HStack {
-                        Text(day.date.dayTitle)
-                            .font(.subheadline.weight(.medium))
-                            .textCase(nil)
-                        Spacer()
-                        Text(day.expenses.total.euros)
-                            .font(.money(.subheadline))
-                    }
+                    DayHeader(date: day.date, total: day.expenses.total.euros)
                 }
-                .warmRows()
+                .ledgerRows()
             }
         }
-        .warmPage()
+        .ledgerPage()
         .overlay {
             if categoryExpenses.isEmpty {
                 ContentUnavailableView(
