@@ -24,6 +24,9 @@ targets:
         CFBundleURLTypes:
           - CFBundleURLName: com.egemorgul.ExpenseTracker
             CFBundleURLSchemes: [expensetracker]
+        # Shows the app's folder in Files, where a restore saves what was there before.
+        UIFileSharingEnabled: true
+        LSSupportsOpeningDocumentsInPlace: true
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES
@@ -91,6 +94,8 @@ schemes:
       config: Debug
     test:
       config: Debug
+      # UI tests run one at a time: on an 8 GB Mac, parallel simulator clones time out at random.
+      # See CLAUDE.md for running them in parallel on a machine with more memory.
       targets: [ExpenseTrackerTests, ExpenseTrackerUITests]
       commandLineArguments:
         "-uiTesting": true

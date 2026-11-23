@@ -218,6 +218,74 @@ private enum StoreV5: VersionedSchema {
     }
 }
 
+/// The store as shipped before categories could have a monthly budget and expenses could repeat.
+private enum StoreV6: VersionedSchema {
+    static var versionIdentifier = Schema.Version(6, 0, 0)
+    static var models: [any PersistentModel.Type] { [Expense.self, ExpenseCategory.self, BalanceEntry.self, Budget.self] }
+
+    @Model
+    final class Expense {
+        var amount: Decimal
+        var categoryName: String
+        var note: String
+        var date: Date
+        var accountName: String?
+
+        init(amount: Decimal, categoryName: String, note: String, date: Date, accountName: String?) {
+            self.amount = amount
+            self.categoryName = categoryName
+            self.note = note
+            self.date = date
+            self.accountName = accountName
+        }
+    }
+
+    @Model
+    final class ExpenseCategory {
+        var name: String
+        var icon: String
+        var colorName: String
+        var sortOrder: Int
+
+        init(name: String, icon: String, colorName: String, sortOrder: Int) {
+            self.name = name
+            self.icon = icon
+            self.colorName = colorName
+            self.sortOrder = sortOrder
+        }
+    }
+
+    @Model
+    final class BalanceEntry {
+        var amount: Decimal
+        var sourceName: String?
+        var destinationName: String
+        var date: Date
+        var isStartingBalance: Bool = false
+
+        init(amount: Decimal, sourceName: String?, destinationName: String, date: Date, isStartingBalance: Bool) {
+            self.amount = amount
+            self.sourceName = sourceName
+            self.destinationName = destinationName
+            self.date = date
+            self.isStartingBalance = isStartingBalance
+        }
+    }
+
+    @Model
+    final class Budget {
+        var amount: Decimal
+        var startDate: Date
+        var endDate: Date?
+
+        init(amount: Decimal, startDate: Date, endDate: Date?) {
+            self.amount = amount
+            self.startDate = startDate
+            self.endDate = endDate
+        }
+    }
+}
+
 final class StoreMigrationTests: XCTestCase {
     private var directory: URL!
     private var storeURL: URL { directory.appending(path: "test.store") }
@@ -402,5 +470,52 @@ final class StoreMigrationTests: XCTestCase {
         let names = try context.fetch(FetchDescriptor<ExpenseCategory>()).map(\.name)
         XCTAssertEqual(names.count, 6)
         XCTAssertFalse(names.contains("Food"))
+    }
+
+    func testExistingDataIsKeptWithNoCategoryBudgetsOrRecurringExpenses() throws {
+        let date = Date(timeIntervalSince1970: 1_790_000_000)
+        do {
+            let old = try ModelContainer(for: Schema(versionedSchema: StoreV6.self), configurations: ModelConfiguration(url: storeURL))
+            let context = ModelContext(old)
+            context.insert(StoreV6.ExpenseCategory(name: "Pets", icon: "pawprint", colorName: "teal", sortOrder: 0))
+            context.insert(StoreV6.Expense(amount: 9, categoryName: "Pets", note: "Treats", date: date, accountName: "cash"))
+            context.insert(StoreV6.BalanceEntry(amount: 80, sourceName: nil, destinationName: "spending", date: date, isStartingBalance: true))
+            context.insert(StoreV6.Budget(amount: 300, startDate: date, endDate: nil))
+            try context.save()
+        }
+
+        let context = ModelContext(try .forApp(ModelConfiguration(url: storeURL)))
+
+        let expenses = try context.fetch(FetchDescriptor<Expense>())
+        XCTAssertEqual(expenses.map(\.amount), [9])
+        XCTAssertEqual(expenses.map(\.account), [.cash])
+        let categories = try context.fetch(FetchDescriptor<ExpenseCategory>())
+        XCTAssertEqual(categories.map(\.name), ["Pets"])
+        XCTAssertEqual(categories.map(\.monthlyBudget), [nil])
+        XCTAssertEqual(try context.fetch(FetchDescriptor<BalanceEntry>()).map(\.isStartingBalance), [true])
+        XCTAssertEqual(try context.fetch(FetchDescriptor<Budget>()).map(\.amount), [300])
+        XCTAssertEqual(try context.fetchCount(FetchDescriptor<RecurringExpense>()), 0)
+    }
+
+    func testCategoryBudgetAndRecurringExpenseSurviveARelaunch() throws {
+        let start = Date(timeIntervalSince1970: 1_790_000_000)
+        do {
+            let context = ModelContext(try .forApp(ModelConfiguration(url: storeURL)))
+            let food = try XCTUnwrap(try context.fetch(FetchDescriptor<ExpenseCategory>()).first { $0.name == "Food" })
+            food.monthlyBudget = Decimal(string: "250.50")
+            let rent = RecurringExpense(amount: 900, categoryName: "Bills", note: "Rent", account: .main, startDate: start)
+            rent.addedCount = 3
+            context.insert(rent)
+            try context.save()
+        }
+
+        let context = ModelContext(try .forApp(ModelConfiguration(url: storeURL)))
+
+        let food = try context.fetch(FetchDescriptor<ExpenseCategory>()).first { $0.name == "Food" }
+        XCTAssertEqual(food?.monthlyBudget, Decimal(string: "250.50"))
+        let recurring = try context.fetch(FetchDescriptor<RecurringExpense>())
+        XCTAssertEqual(recurring.map(\.note), ["Rent"])
+        XCTAssertEqual(recurring.map(\.startDate), [start])
+        XCTAssertEqual(recurring.map(\.addedCount), [3])
     }
 }

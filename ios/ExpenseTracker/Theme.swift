@@ -110,7 +110,20 @@ extension View {
             .listRowSeparator(.hidden)
     }
 
-    /// Swipe right to edit a list row and left to delete it. Delete is declared here rather than with
+    /// Shows an alert while `message` is set, and clears it when dismissed.
+    func errorAlert(_ title: String, message: Binding<String?>) -> some View {
+        alert(title, isPresented: Binding(
+            get: { message.wrappedValue != nil },
+            set: { if !$0 { message.wrappedValue = nil } }
+        )) {
+            Button("OK") {}
+        } message: {
+            Text(message.wrappedValue ?? "")
+        }
+    }
+
+    /// Swipe right to edit a list row and left to delete it. A full swipe doesn't delete, so a row
+    /// can't be lost to a slip of the thumb: the Delete button has to be tapped. Delete is declared here rather than with
     /// `onDelete`, because a row with custom swipe actions can lose the one `onDelete` provides.
     func editDeleteSwipeActions(edit: (() -> Void)?, delete: @escaping () -> Void) -> some View {
         swipeActions(edge: .leading) {
@@ -119,7 +132,7 @@ extension View {
                     .tint(.brand)
             }
         }
-        .swipeActions(edge: .trailing) {
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
             Button("Delete", systemImage: "trash", role: .destructive, action: delete)
         }
     }

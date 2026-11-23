@@ -19,6 +19,9 @@ struct BalanceEntryView: View {
     @State private var date: Date
     /// Only used when adding.
     @State private var isStartingBalance: Bool
+    @State private var saveError: String?
+    /// Guards against a second tap on Save adding the same thing again while the form closes.
+    @State private var hasSaved = false
 
     init(isTransfer: Bool, balances: Balances, editing entry: BalanceEntry? = nil) {
         self.isTransfer = isTransfer
@@ -88,6 +91,7 @@ struct BalanceEntryView: View {
             .ledgerPage()
             .scrollDismissesKeyboard(.interactively)
             .navigationTitle(title)
+            .errorAlert("Couldn't save", message: $saveError)
             .navigationBarTitleDisplayMode(.inline)
             .onChange(of: account) { _, newValue in
                 if destination == newValue {
@@ -113,7 +117,7 @@ struct BalanceEntryView: View {
     }
 
     private func save() {
-        guard let amount else { return }
+        guard !hasSaved, let amount else { return }
         if let entry {
             entry.amount = amount
             entry.destinationName = account.rawValue
@@ -124,13 +128,16 @@ struct BalanceEntryView: View {
         } else {
             modelContext.insert(BalanceEntry(amount: amount, source: nil, destination: account, date: date, isStartingBalance: isStartingBalance))
         }
+        saveError = modelContext.saveNowFailure()
+        guard saveError == nil else { return }
+        hasSaved = true
         UINotificationFeedbackGenerator().notificationOccurred(.success)
         dismiss()
     }
 }
 
 struct BalanceHistoryView: View {
-    @Environment(\.modelContext) private var modelContext
+    @Environment(\.undoableDelete) private var delete
     @Query(sort: \BalanceEntry.date, order: .reverse) private var entries: [BalanceEntry]
     @State private var entryBeingEdited: EditRequest<BalanceEntry>?
 
@@ -158,7 +165,7 @@ struct BalanceHistoryView: View {
                     }
                     .editDeleteSwipeActions(
                         edit: entry.source == nil ? { entryBeingEdited = EditRequest(entry) } : nil,
-                        delete: { modelContext.delete(entry) }
+                        delete: { delete(entry) }
                     )
                 }
             } footer: {

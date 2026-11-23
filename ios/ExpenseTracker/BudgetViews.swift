@@ -104,6 +104,9 @@ struct BudgetFormView: View {
     @State private var start: Date
     @State private var end: Date
     @State private var isConfirmingRemoval = false
+    @State private var saveError: String?
+    /// Guards against a second tap on Save adding a second budget while the form closes.
+    @State private var hasSaved = false
 
     init(editing budget: Budget?) {
         self.budget = budget
@@ -159,6 +162,7 @@ struct BudgetFormView: View {
             .ledgerPage()
             .scrollDismissesKeyboard(.interactively)
             .navigationTitle(budget == nil ? "Set a budget" : "Edit budget")
+            .errorAlert("Couldn't save", message: $saveError)
             .navigationBarTitleDisplayMode(.inline)
             .onChange(of: start) { _, newValue in
                 if end < newValue { end = newValue }
@@ -193,12 +197,14 @@ struct BudgetFormView: View {
     }
 
     private func save() {
-        guard let plan else { return }
+        guard !hasSaved, let plan else { return }
         if let budget {
             budget.plan = plan
         } else {
             modelContext.insert(Budget(plan: plan))
         }
+        guard saveChanges() else { return }
+        hasSaved = true
         UINotificationFeedbackGenerator().notificationOccurred(.success)
         dismiss()
     }
@@ -207,6 +213,13 @@ struct BudgetFormView: View {
         if let budget {
             modelContext.delete(budget)
         }
+        guard saveChanges() else { return }
         dismiss()
+    }
+
+    /// Leaves the form open with an alert when the change can't be saved.
+    private func saveChanges() -> Bool {
+        saveError = modelContext.saveNowFailure()
+        return saveError == nil
     }
 }

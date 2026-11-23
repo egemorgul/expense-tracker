@@ -46,6 +46,32 @@ final class PeriodTests: XCTestCase {
         XCTAssertTrue(shifted.isWholeMonth(calendar: calendar))
     }
 
+    func testCurrentMonthMovesOnWhenTheMonthChanges() {
+        let november = Period.month(containing: date(2026, 11, 30), calendar: calendar)
+
+        let next = november.following(from: date(2026, 11, 30), to: date(2026, 12, 1), calendar: calendar)
+
+        XCTAssertEqual(next, Period.month(containing: date(2026, 12, 1), calendar: calendar))
+    }
+
+    func testCurrentMonthStaysWithinTheSameMonth() {
+        let november = Period.month(containing: date(2026, 11, 10), calendar: calendar)
+
+        XCTAssertEqual(november.following(from: date(2026, 11, 10), to: date(2026, 11, 11), calendar: calendar), november)
+    }
+
+    func testMonthSteppedToOnPurposeStays() {
+        let october = Period.month(containing: date(2026, 10, 15), calendar: calendar)
+
+        XCTAssertEqual(october.following(from: date(2026, 11, 30), to: date(2026, 12, 1), calendar: calendar), october)
+    }
+
+    func testCustomRangeStays() {
+        let range = Period(from: date(2026, 11, 3), to: date(2026, 11, 20))
+
+        XCTAssertEqual(range.following(from: date(2026, 11, 30), to: date(2026, 12, 1), calendar: calendar), range)
+    }
+
     func testExpensesAreGroupedByDayLatestFirst() {
         let early = Expense(amount: 1, categoryName: "Food", note: "", date: date(2024, 3, 10, hour: 8))
         let late = Expense(amount: 2, categoryName: "Food", note: "", date: date(2024, 3, 10, hour: 20))

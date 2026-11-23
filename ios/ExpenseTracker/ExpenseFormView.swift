@@ -15,6 +15,11 @@ struct ExpenseFormView: View {
     @State private var categoryName: String
     @State private var note: String
     @State private var date: Date
+    /// Only offered when adding. Repeating expenses are managed from Activity.
+    @State private var repeatsMonthly = false
+    @State private var saveError: String?
+    /// Guards against a second tap on Save adding the same thing again while the form closes.
+    @State private var hasSaved = false
 
     init(balances: Balances, editing expense: Expense? = nil) {
         self.balances = balances
@@ -83,12 +88,21 @@ struct ExpenseFormView: View {
                     TextField("Note (optional)", text: $note)
 
                     DatePicker("Date", selection: $date, displayedComponents: .date)
+
+                    if expense == nil {
+                        Toggle("Repeat monthly", isOn: $repeatsMonthly)
+                    }
+                } footer: {
+                    if repeatsMonthly, let next = Calendar.current.date(byAdding: .month, value: 1, to: date) {
+                        Text("Added again on the same day each month, next on \(next.formatted(.dateTime.day().month(.wide))). Stop it from Recurring on the Activity tab.")
+                    }
                 }
                 .ledgerRows()
             }
             .ledgerPage()
             .scrollDismissesKeyboard(.interactively)
             .navigationTitle(expense == nil ? "Add expense" : "Edit expense")
+            .errorAlert("Couldn't save", message: $saveError)
             .navigationBarTitleDisplayMode(.inline)
             .onAppear {
                 if categoryName.isEmpty {
@@ -109,7 +123,7 @@ struct ExpenseFormView: View {
     }
 
     private func save() {
-        guard let amount else { return }
+        guard !hasSaved, let amount else { return }
         if let expense {
             expense.amount = amount
             expense.categoryName = categoryName
@@ -118,7 +132,17 @@ struct ExpenseFormView: View {
             expense.accountName = account.rawValue
         } else {
             modelContext.insert(Expense(amount: amount, categoryName: categoryName, note: note, date: date, account: account))
+            if repeatsMonthly {
+                let recurring = RecurringExpense(amount: amount, categoryName: categoryName, note: note, account: account, startDate: date)
+                recurring.addedCount = 1
+                modelContext.insert(recurring)
+                // A first date months back fills in the months since, like it does after the app was closed.
+                recurring.addDueExpenses(in: modelContext, at: .now)
+            }
         }
+        saveError = modelContext.saveNowFailure()
+        guard saveError == nil else { return }
+        hasSaved = true
         UINotificationFeedbackGenerator().notificationOccurred(.success)
         dismiss()
     }

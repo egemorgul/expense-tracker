@@ -75,6 +75,8 @@ extension Color {
     /// Supporting text. Passes 4.5:1 on both paper and cards.
     static let inkSecondary = Color(light: 0x5F5F5A, dark: 0xA6A69F)
     static let hairline = Color(light: 0xE4E3DD, dark: 0x2C2C29)
+    /// Chart marks that sit behind the one in focus, which is `ink`. Passes 3:1 on cards.
+    static let chartMuted = Color(light: 0x858480, dark: 0x6E6E69)
 
     /// The one accent: tabs, links, progress and money coming in.
     static let brand = Color(light: 0x136F4A, dark: 0x4CC38A)

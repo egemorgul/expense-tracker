@@ -55,6 +55,8 @@ final class ExpenseCategory {
     var icon: String
     var colorName: String
     var sortOrder: Int
+    /// How much the user means to spend on it each calendar month. Nil when it has no budget.
+    var monthlyBudget: Decimal?
 
     init(name: String, icon: String, color: CategoryColor, sortOrder: Int) {
         self.name = name
@@ -143,6 +145,14 @@ struct CategoryTotal: Identifiable {
     var id: String { categoryName }
 }
 
+struct MonthTotal: Identifiable, Equatable {
+    /// The month's first moment.
+    let month: Date
+    let total: Decimal
+
+    var id: Date { month }
+}
+
 struct ExpenseDay: Identifiable {
     let date: Date
     let expenses: [Expense]
@@ -170,6 +180,18 @@ extension Array where Element == Expense {
 
     var total: Decimal {
         reduce(0) { $0 + $1.amount }
+    }
+
+    /// The `count` calendar months ending with the one containing `date`, oldest first. Months with
+    /// nothing spent are included, at zero.
+    func monthlyTotals(endingWith date: Date, count: Int, calendar: Calendar = .current) -> [MonthTotal] {
+        guard let last = calendar.dateInterval(of: .month, for: date)?.start else { return [] }
+        return (0..<count).reversed().compactMap { monthsBack in
+            guard let start = calendar.date(byAdding: .month, value: -monthsBack, to: last),
+                  let month = calendar.dateInterval(of: .month, for: start) else { return nil }
+            let spent = filter { $0.date >= month.start && $0.date < month.end }
+            return MonthTotal(month: month.start, total: spent.total)
+        }
     }
 
     /// Largest subtotal first.

@@ -38,11 +38,30 @@ struct MoneyTransaction: Identifiable {
         calendar: Calendar = .current
     ) -> [MoneyTransaction] {
         guard let days = calendar.wholeDays(from: from, to: to) else { return [] }
+        return all(entries: entries, expenses: expenses).filter { days.contains($0.date) }
+    }
+
+    /// Every transaction ever, latest first. Transfers and starting balances are left out, like `list`.
+    static func all(entries: [BalanceEntry], expenses: [Expense]) -> [MoneyTransaction] {
         let income = entries.filter(\.countsAsIncome).map(MoneyTransaction.init(income:))
         let spent = expenses.map(MoneyTransaction.init(expense:))
-        return (income + spent)
-            .filter { days.contains($0.date) }
-            .sorted { $0.date > $1.date }
+        return (income + spent).sorted { $0.date > $1.date }
+    }
+
+    /// Matches a note, category or account, ignoring case and accents, or an amount typed with either
+    /// decimal separator: "12,50" finds 12.50, and "12" finds anything with 12 in its amount.
+    func matches(_ query: String) -> Bool {
+        let query = query.trimmingCharacters(in: .whitespaces)
+        guard !query.isEmpty else { return true }
+        let amount = abs(signedAmount)
+        if let typed = Decimal(amountInput: query), typed == amount { return true }
+        if "\(amount)".contains(query.replacingOccurrences(of: ",", with: ".")) { return true }
+
+        let words: [String] = switch kind {
+        case .expense(let expense): [expense.note, expense.categoryName, expense.account.title]
+        case .income(let entry): ["Income", entry.destination.title]
+        }
+        return words.contains { $0.localizedStandardContains(query) }
     }
 }
 

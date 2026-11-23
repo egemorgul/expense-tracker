@@ -20,8 +20,10 @@ struct ActivityView: View {
         }
     }
 
-    @Environment(\.modelContext) private var modelContext
+    @Environment(\.undoableDelete) private var delete
     @State private var filter = Filter.all
+    @State private var query = ""
+    @State private var isShowingRecurring = false
 
     let entries: [BalanceEntry]
     let expenses: [Expense]
@@ -32,7 +34,11 @@ struct ActivityView: View {
     let editIncome: (BalanceEntry) -> Void
 
     var body: some View {
-        let transactions = MoneyTransaction.list(entries: entries, expenses: expenses, from: period.from, to: period.to)
+        let isSearching = !query.trimmingCharacters(in: .whitespaces).isEmpty
+        // A search looks through everything, whatever the period.
+        let transactions = isSearching
+            ? MoneyTransaction.all(entries: entries, expenses: expenses).filter { $0.matches(query) }
+            : MoneyTransaction.list(entries: entries, expenses: expenses, from: period.from, to: period.to)
         let shown = transactions.filter(filter.includes)
 
         NavigationStack {
@@ -59,14 +65,37 @@ struct ActivityView: View {
             .ledgerPage()
             .overlay {
                 if shown.isEmpty {
-                    emptyState
+                    if isSearching {
+                        ContentUnavailableView.search(text: query)
+                    } else {
+                        emptyState
+                    }
                 }
             }
             .navigationTitle("Activity")
             .navigationBarTitleDisplayMode(.inline)
+            .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: "Notes, categories or amounts")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Recurring", systemImage: "repeat") {
+                        isShowingRecurring = true
+                    }
+                }
+            }
+            .sheet(isPresented: $isShowingRecurring) {
+                RecurringExpensesView()
+                    .ledgerSheet()
+            }
             .safeAreaInset(edge: .top, spacing: 0) {
                 VStack(spacing: 8) {
-                    PeriodBar(period: $period)
+                    if isSearching {
+                        Text("Searching all time")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(Color.inkSecondary)
+                            .frame(minHeight: 44)
+                    } else {
+                        PeriodBar(period: $period)
+                    }
                     Picker("Show", selection: $filter) {
                         ForEach(Filter.allCases) { filter in
                             Text(filter.rawValue).tag(filter)
@@ -101,13 +130,13 @@ struct ActivityView: View {
             IncomeRow(entry: entry)
                 .editDeleteSwipeActions(
                     edit: { editIncome(entry) },
-                    delete: { modelContext.delete(entry) }
+                    delete: { delete(entry) }
                 )
         case .expense(let expense):
             ExpenseRow(expense: expense, category: categoriesByName[expense.categoryName], showsDate: false, showsSign: true)
                 .editDeleteSwipeActions(
                     edit: { editExpense(expense) },
-                    delete: { modelContext.delete(expense) }
+                    delete: { delete(expense) }
                 )
         }
     }

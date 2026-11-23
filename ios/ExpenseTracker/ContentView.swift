@@ -9,8 +9,10 @@ struct ContentView: View {
     @Query(sort: \Expense.date, order: .reverse) private var expenses: [Expense]
     @Query(sort: \ExpenseCategory.sortOrder) private var categories: [ExpenseCategory]
     @Query private var balanceEntries: [BalanceEntry]
-    @Query private var budgets: [Budget]
+    /// There's at most one, sorted so that `first` would always pick the same one regardless.
+    @Query(sort: \Budget.startDate) private var budgets: [Budget]
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.modelContext) private var modelContext
     /// Moves on when the day changes, so the budget gets each new day's figure.
     @State private var now = Date.now
     @State private var tab = AppTab.home
@@ -19,6 +21,7 @@ struct ContentView: View {
     @State private var incomeBeingEdited: EditRequest<BalanceEntry>?
     /// Shared by Activity and Insights, so both look at the same days.
     @State private var period = Period.month(containing: .now)
+    @State private var undoOffer: UndoOffer?
 
     var body: some View {
         let balances = Balances(entries: balanceEntries, expenses: expenses)
@@ -41,6 +44,7 @@ struct ContentView: View {
                 showInsights: { tab = .insights },
                 showActivity: { tab = .activity }
             )
+            .undoBanner($undoOffer)
             .tabItem { Label("Home", systemImage: "house") }
             .tag(AppTab.home)
 
@@ -53,15 +57,19 @@ struct ContentView: View {
                 editExpense: editExpense,
                 editIncome: { incomeBeingEdited = EditRequest($0) }
             )
+            .undoBanner($undoOffer)
             .tabItem { Label("Activity", systemImage: "list.bullet") }
             .tag(AppTab.activity)
 
             InsightsView(expenses: expenses, categoriesByName: categoriesByName, period: $period, addExpense: addExpense, editExpense: editExpense)
+                .undoBanner($undoOffer)
                 .tabItem { Label("Insights", systemImage: "chart.pie") }
                 .tag(AppTab.insights)
         }
         .tint(.brand)
         .foregroundStyle(Color.ink)
+        .animation(.default, value: undoOffer)
+        .environment(\.undoableDelete, UndoableDelete { undoOffer = $0 })
         .sheet(isPresented: $isAddingExpense) {
             ExpenseFormView(balances: balances)
                 .ledgerSheet()
@@ -86,6 +94,13 @@ struct ContentView: View {
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { now = .now }
         }
+        .task(id: now) {
+            // Fails only when the store can't be written, and then the next day or launch tries again.
+            try? RecurringExpense.addDueExpenses(in: modelContext, at: now)
+        }
+        .onChange(of: now) { previous, current in
+            period = period.following(from: previous, to: current)
+        }
         .onOpenURL { url in
             // Asking for a second sheet over an open one fails, and would leave this flag stuck on.
             if url == WidgetLink.addExpense, !UIApplication.shared.isPresentingSheet {
@@ -107,7 +122,10 @@ private extension UIApplication {
 private struct HomeView: View {
     private static let recentCount = 5
 
+    @Environment(\.undoableDelete) private var delete
     @Environment(\.modelContext) private var modelContext
+    @AppStorage(BackupReminder.key) private var lastBackupSeconds: Double = 0
+    @State private var backupFlow = BackupFlow()
     @State private var isAddingMoney = false
     @State private var isMovingMoney = false
     @State private var isShowingHistory = false
@@ -126,9 +144,11 @@ private struct HomeView: View {
     let showActivity: () -> Void
 
     var body: some View {
-        let month = Period.month(containing: .now)
+        let month = Period.month(containing: today)
         let monthExpenses = expenses.within(from: month.from, to: month.to)
         let recent = Array(expenses.prefix(Self.recentCount))
+        let lastBackup = lastBackupSeconds > 0 ? Date(timeIntervalSince1970: lastBackupSeconds) : nil
+        let hasData = !expenses.isEmpty || balances[.main] != 0 || balances[.savings] != 0 || balances[.cash] != 0
 
         NavigationStack {
             List {
@@ -153,6 +173,15 @@ private struct HomeView: View {
                     }
                     .bareRow()
                     .padding(.top, 12)
+                }
+
+                if BackupReminder.isDue(lastBackup: lastBackup, hasData: hasData, at: today) {
+                    Section {
+                        BackupReminderCard(lastBackup: lastBackup) {
+                            backupFlow.backUp(from: modelContext)
+                        }
+                    }
+                    .ledgerRows()
                 }
 
                 Section {
@@ -189,7 +218,7 @@ private struct HomeView: View {
                         ExpenseRow(expense: expense, category: categoriesByName[expense.categoryName])
                             .editDeleteSwipeActions(
                                 edit: { editExpense(expense) },
-                                delete: { modelContext.delete(expense) }
+                                delete: { delete(expense) }
                             )
                     }
                 } header: {
@@ -214,10 +243,23 @@ private struct HomeView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(Color.paper, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu("Backup", systemImage: "externaldrive") {
+                        Button("Back up", systemImage: "square.and.arrow.up") {
+                            backupFlow.backUp(from: modelContext)
+                        }
+                        Button("Restore from backup", systemImage: "arrow.counterclockwise") {
+                            backupFlow.isImporting = true
+                        }
+                    }
+                }
+            }
             .navigationDestination(isPresented: $isShowingHistory) {
                 BalanceHistoryView(balances: balances)
             }
             .addExpenseButton(action: addExpense)
+            .backupFlow(backupFlow)
             .sheet(isPresented: $isAddingMoney) {
                 BalanceEntryView(isTransfer: false, balances: balances)
                     .ledgerSheet()

@@ -11,6 +11,7 @@ struct CategoriesView: View {
     @State private var icon = ExpenseCategory.defaultIcon
     @State private var categoryBeingEdited: EditRequest<ExpenseCategory>?
     @FocusState private var isEditing: Bool
+    @State private var saveError: String?
 
     private var trimmedName: String {
         name.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -46,16 +47,23 @@ struct CategoriesView: View {
                             let count = expenseCounts[category.name, default: 0]
                             HStack(spacing: 12) {
                                 CategoryBadge(category: category)
-                                Text(category.name)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(category.name)
+                                    if let budget = category.monthlyBudget {
+                                        Text("\(budget.euros) a month")
+                                            .font(.caption)
+                                            .foregroundStyle(Color.inkSecondary)
+                                    }
+                                }
                                 Spacer()
                                 Text(usage(count))
                                     .font(.caption)
                                     .foregroundStyle(Color.inkSecondary)
                             }
-                            // A row that's a button opens on a swipe when it can't be deleted, so the
-                            // icon is changed with a swipe right, like editing elsewhere in the app.
+                            // A row that's a button opens on a swipe when it can't be deleted, so a
+                            // category is edited with a swipe right, like editing elsewhere in the app.
                             .swipeActions(edge: .leading) {
-                                Button("Icon", systemImage: "square.grid.2x2") {
+                                Button("Edit", systemImage: "pencil") {
                                     categoryBeingEdited = EditRequest(category)
                                 }
                                 .tint(.brand)
@@ -67,11 +75,12 @@ struct CategoriesView: View {
                             for index in offsets {
                                 modelContext.delete(categories[index])
                             }
+                            save()
                         }
                     } header: {
                         Text("Categories")
                     } footer: {
-                        Text("Swipe right on a category to change its icon, or left to delete it. Categories with expenses can't be deleted, and at least one has to remain.")
+                        Text("Swipe right on a category to change its icon or monthly budget, or left to delete it. Categories with expenses can't be deleted, and at least one has to remain.")
                     }
                     .ledgerRows()
                 }
@@ -83,11 +92,11 @@ struct CategoriesView: View {
                 }
             }
             .navigationTitle("Categories")
+            .errorAlert("Couldn't save", message: $saveError)
             .navigationBarTitleDisplayMode(.inline)
             .sheet(item: $categoryBeingEdited) { request in
-                CategoryIconSheet(category: request.model)
+                EditCategorySheet(category: request.model)
                     .ledgerSheet()
-                    .presentationDetents([.medium])
             }
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
@@ -108,9 +117,17 @@ struct CategoriesView: View {
     private func add() {
         let category = categories.makeCategory(name: trimmedName, icon: icon)
         modelContext.insert(category)
+        guard save() else { return }
         name = ""
         icon = ExpenseCategory.defaultIcon
         isEditing = false
+    }
+
+    /// Shows an alert when the change can't be saved, and leaves what was typed in place to try again.
+    @discardableResult
+    private func save() -> Bool {
+        saveError = modelContext.saveNowFailure()
+        return saveError == nil
     }
 }
 
@@ -148,32 +165,88 @@ struct CategoryIconGrid: View {
     }
 }
 
-private struct CategoryIconSheet: View {
+/// Changes a category's icon and monthly budget. Nothing changes until Save.
+private struct EditCategorySheet: View {
     @Environment(\.dismiss) private var dismiss
-    @Bindable var category: ExpenseCategory
+    @Environment(\.modelContext) private var modelContext
+
+    let category: ExpenseCategory
+
+    @State private var icon: String
+    @State private var budgetText: String
+    @State private var saveError: String?
+
+    init(category: ExpenseCategory) {
+        self.category = category
+        // An emoji saved before icons were symbols starts as the symbol it's shown as.
+        _icon = State(initialValue: category.symbolName)
+        _budgetText = State(initialValue: category.monthlyBudget.map { "\($0)" } ?? "")
+    }
+
+    /// Nil when the field is empty, which means no budget, or can't be read.
+    private var budget: Decimal? {
+        Decimal(amountInput: budgetText).flatMap { $0 > 0 ? $0 : nil }
+    }
+
+    private var isBudgetValid: Bool {
+        budgetText.trimmingCharacters(in: .whitespaces).isEmpty || budget != nil
+    }
 
     var body: some View {
         NavigationStack {
             Form {
-                Section {
-                    CategoryIconGrid(selection: $category.icon, color: category.color)
+                Section("Icon") {
+                    CategoryIconGrid(selection: $icon, color: category.color)
                         .accessibilityElement(children: .contain)
                         .accessibilityIdentifier("Icons for \(category.name)")
                 }
                 .ledgerRows()
+
+                Section {
+                    HStack {
+                        Text("€")
+                            .foregroundStyle(Color.inkSecondary)
+                            .accessibilityHidden(true)
+                        TextField("No budget", text: $budgetText)
+                            .keyboardType(.decimalPad)
+                            .accessibilityLabel("Monthly budget (€)")
+                    }
+                } header: {
+                    Text("Monthly budget")
+                } footer: {
+                    if !isBudgetValid {
+                        Text("Use at most two decimals, like 200 or 12.50")
+                            .foregroundStyle(Color.negative)
+                    } else {
+                        Text("Insights shows how much of it is left each month. Leave it empty for no budget.")
+                    }
+                }
+                .ledgerRows()
             }
             .ledgerPage()
+            .scrollDismissesKeyboard(.interactively)
             .navigationTitle(category.name)
             .navigationBarTitleDisplayMode(.inline)
-            .onAppear {
-                // An emoji saved before icons were symbols becomes the symbol it's shown as.
-                if category.icon != category.symbolName { category.icon = category.symbolName }
-            }
+            .errorAlert("Couldn't save", message: $saveError)
             .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
+                    Button("Save", action: save)
+                        .bold()
+                        .disabled(!isBudgetValid)
                 }
             }
         }
+    }
+
+    private func save() {
+        guard isBudgetValid else { return }
+        category.icon = icon
+        category.monthlyBudget = budget
+        saveError = modelContext.saveNowFailure()
+        guard saveError == nil else { return }
+        dismiss()
     }
 }

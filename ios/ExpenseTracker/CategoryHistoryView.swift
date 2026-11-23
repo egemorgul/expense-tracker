@@ -3,7 +3,7 @@ import SwiftUI
 
 /// Every expense in one category over the period chosen on the Insights tab, latest day first.
 struct CategoryHistoryView: View {
-    @Environment(\.modelContext) private var modelContext
+    @Environment(\.undoableDelete) private var delete
 
     let categoryName: String
     let category: ExpenseCategory?
@@ -45,7 +45,7 @@ struct CategoryHistoryView: View {
                         ExpenseRow(expense: expense, category: category, showsDate: false, showsCategory: false)
                             .editDeleteSwipeActions(
                                 edit: { editExpense(expense) },
-                                delete: { modelContext.delete(expense) }
+                                delete: { delete(expense) }
                             )
                     }
                 } header: {

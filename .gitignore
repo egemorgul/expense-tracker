@@ -11,6 +11,9 @@ xcuserdata/
 CLAUDE.md
 .claude/
 
+# Graphift
+graphify-out/
+
 # Secrets and signing files
 .env
 .env.*

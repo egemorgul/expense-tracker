@@ -17,6 +17,14 @@ struct Period: Equatable {
         return calendar.isDate(from, inSameDayAs: month.from) && calendar.isDate(to, inSameDayAs: month.to)
     }
 
+    /// Moves along when the day changes, but only while showing the month that was current. A custom
+    /// range, or a month stepped to on purpose, stays as it is.
+    func following(from previousDay: Date, to newDay: Date, calendar: Calendar = .current) -> Period {
+        let wasCurrentMonth = isWholeMonth(calendar: calendar)
+            && calendar.isDate(from, equalTo: previousDay, toGranularity: .month)
+        return wasCurrentMonth ? Period.month(containing: newDay, calendar: calendar) : self
+    }
+
     /// Always a whole month, so stepping away from a custom range lands on a month next to its start.
     func shifted(byMonths months: Int, calendar: Calendar = .current) -> Period {
         let date = calendar.date(byAdding: .month, value: months, to: from) ?? from

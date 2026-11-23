@@ -105,4 +105,44 @@ final class MoneyTransactionTests: XCTestCase {
 
         XCTAssertEqual(transactions.map(\.signedAmount).sorted(), [-3, 2])
     }
+
+    func testSearchMatchesNotesCategoriesAndAccountsIgnoringCase() throws {
+        let lunch = Expense(amount: 12, categoryName: "Food", note: "Lunch at Çiya", date: try date(10, 3), account: .cash)
+        context.insert(lunch)
+        let transaction = MoneyTransaction(expense: lunch)
+
+        XCTAssertTrue(transaction.matches("lunch"))
+        XCTAssertTrue(transaction.matches("ciya"))
+        XCTAssertTrue(transaction.matches("food"))
+        XCTAssertTrue(transaction.matches("Cash"))
+        XCTAssertFalse(transaction.matches("rent"))
+    }
+
+    func testSearchMatchesAmountsWithEitherDecimalSeparator() throws {
+        let transaction = MoneyTransaction(expense: expense(Decimal(string: "12.5")!, on: try date(10, 3)))
+
+        XCTAssertTrue(transaction.matches("12,50"))
+        XCTAssertTrue(transaction.matches("12.5"))
+        XCTAssertTrue(transaction.matches("12"))
+        XCTAssertFalse(transaction.matches("13"))
+    }
+
+    func testSearchFindsIncomeByWordAndAmount() throws {
+        let transaction = MoneyTransaction(income: income(1800, on: try date(10, 1)))
+
+        XCTAssertTrue(transaction.matches("income"))
+        XCTAssertTrue(transaction.matches("1800"))
+        XCTAssertTrue(transaction.matches("main"))
+    }
+
+    func testAllTimeListSpansEveryPeriodAndLeavesOutTransfers() throws {
+        let old = expense(5, on: try date(1, 10))
+        let recent = expense(7, on: try date(10, 10))
+        let transfer = BalanceEntry(amount: 50, source: .main, destination: .savings, date: try date(5, 1))
+        context.insert(transfer)
+
+        let all = MoneyTransaction.all(entries: [transfer], expenses: [old, recent])
+
+        XCTAssertEqual(all.map(\.signedAmount), [-7, -5])
+    }
 }
